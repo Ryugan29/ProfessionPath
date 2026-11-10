@@ -1,0 +1,11 @@
+{
+  "name": "metiers-pas-a-pas-tests",
+  "private": true,
+  "description": "Outils de test pour l'add-on Profession Path (ne fait pas partie de l'add-on publié).",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "fengari": "^0.1.4"
+  }
+}

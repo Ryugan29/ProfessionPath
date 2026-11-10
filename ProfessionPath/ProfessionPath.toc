@@ -1,0 +1,27 @@
+## Interface: 16001
+## Title: Profession Path
+## Notes: Step-by-step profession leveling guide: what to craft next, how many, with which materials, and why.
+## Notes-frFR: Guide pas à pas pour monter tes métiers : quoi fabriquer, combien, avec quels matériaux, et pourquoi.
+## Author: Ryugan
+## Version: 1.0.0-beta1
+## X-License: MIT
+## Category-enUS: Professions
+## Category-frFR: Métiers
+## IconTexture: Interface\Icons\Trade_Engineering
+## SavedVariables: ProfessionPathDB
+## OptionalDeps: Auctionator
+## AddonCompartmentFunc: ProfessionPath_OnAddonCompartmentClick
+
+Locales.lua
+Data\Thresholds.lua
+Data\Corrections.lua
+Data\VendorPrices.lua
+Data\Crafts.lua
+Planner.lua
+Favorites.lua
+Core.lua
+Trainer.lua
+Vendor.lua
+Theme.lua
+Bags.lua
+UI.lua
