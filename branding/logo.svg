@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <!-- Logo de Profession Path. Couleurs reprises du thème de l'add-on (ProfessionPath/Theme.lua) :
+       fond anthracite, accent ambre. Dessin original : aucun élément du jeu n'est repris. -->
+  <defs>
+    <radialGradient id="bg" cx="38%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#1c1f26"/>
+      <stop offset="1" stop-color="#0b0c10"/>
+    </radialGradient>
+    <linearGradient id="amber" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#c9822a"/>
+      <stop offset="1" stop-color="#ffc35a"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+  </defs>
+
+  <rect width="400" height="400" fill="url(#bg)"/>
+  <rect x="10" y="10" width="380" height="380" rx="28" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="2"/>
+
+  <!-- Repères de progression, comme la barre de l'add-on -->
+  <g fill="#ffffff" fill-opacity="0.08">
+    <rect x="70" y="332" width="60" height="6" rx="3"/>
+    <rect x="140" y="332" width="60" height="6" rx="3"/>
+    <rect x="210" y="332" width="60" height="6" rx="3"/>
+    <rect x="280" y="332" width="50" height="6" rx="3"/>
+  </g>
+  <rect x="70" y="332" width="200" height="6" rx="3" fill="#f5ad38"/>
+
+  <!-- Le parcours : un escalier qui monte, pas à pas -->
+  <path d="M70 290 H130 V230 H190 V170 H250 V110 H300"
+        fill="none" stroke="#f5ad38" stroke-opacity="0.35" stroke-width="22"
+        stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M70 290 H130 V230 H190 V170 H250 V110 H300"
+        fill="none" stroke="url(#amber)" stroke-width="16"
+        stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- Les étapes -->
+  <g fill="#0e0f13" stroke="#f5ad38" stroke-width="6">
+    <circle cx="70" cy="290" r="11"/>
+    <circle cx="130" cy="230" r="11"/>
+    <circle cx="190" cy="170" r="11"/>
+  </g>
+
+  <!-- Le but : une étoile ambre, comme les favoris -->
+  <circle cx="300" cy="110" r="36" fill="#f5ad38" fill-opacity="0.35" filter="url(#glow)"/>
+  <path d="M300 74 L310.6 99.4 L337 110 L310.6 120.6 L300 146 L289.4 120.6 L263 110 L289.4 99.4 Z"
+        fill="#ffd27a" stroke="#f5ad38" stroke-width="3" stroke-linejoin="round"/>
+</svg>

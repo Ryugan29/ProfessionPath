@@ -1,5 +1,23 @@
 # Profession Path
 
+![Profession Path](branding/logo.png)
+
+**Step-by-step profession leveling for World of Warcraft Forever** (client 1.60.1, interface `16001`): what to craft next, how many, with which materials, at what cost — and why. Information only: it never crafts, buys or moves anything for you.
+
+- **Install**: copy the `ProfessionPath` folder into `World of Warcraft\_forever_\Interface\AddOns\`, or install it from CurseForge.
+- **Use**: open your profession window once, talk to your profession trainer once (with the "Unavailable" filter ticked), then type `/ppath`.
+- **Bugs and suggestions**: open an issue on this repository, with a screenshot and the output of `/ppath debug`.
+- **Status**: public beta, tested in game on Leatherworking and Blacksmithing.
+- **Licence**: MIT (see `LICENSE`). Author: Ryugan.
+
+![Main window](branding/screenshots/1-main-window.png)
+
+The rest of this document is the full French manual.
+
+---
+
+## Notice en français
+
 Add-on pour **WoW Forever** qui te guide pour monter tes métiers : quelle recette fabriquer maintenant, combien, avec quels matériaux, et pourquoi.
 
 L'add-on **informe seulement**. Il ne fabrique rien, n'achète rien et ne déplace pas ton personnage.
