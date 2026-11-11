@@ -363,7 +363,7 @@ scenario("tous les textes utilises par la fenetre existent", function()
         "TITLE", "DONE", "RESET", "TARGET", "NEXT_HEADER", "STEPS_HEADER", "MATERIALS_HEADER", "NO_PROFESSION",
         "FAV_ADD", "FAV_REMOVE", "FAV_TIP", "FAV_WIDGET", "FAV_NONE_IN_BAGS", "OWNED_BANK", "DEBUG_FAVORITES",
         "HERO_MATERIALS", "PER_CRAFT", "STEP_MATERIALS",
-        "TAB_LEVEL", "TAB_UNREAD", "MINIMAP_TIP_CLICK", "MINIMAP_TIP_DRAG", "MINIMAP_TIP_HIDE", "MINIMAP_HIDDEN", "MINIMAP_SHOWN", "NPC_HEADER", "NPC_TRAINER", "NPC_VENDOR", "NPC_MAP_BUTTON", "NPC_MAP_TIP", "NPC_PIN_DONE", "NPC_PIN_FAILED", "NPC_NONE", "VISIT_PIN", "DEBUG_NPCS", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
+        "TAB_LEVEL", "TAB_UNREAD", "MINIMAP_TIP_CLICK", "MINIMAP_TIP_DRAG", "MINIMAP_TIP_HIDE", "MINIMAP_HIDDEN", "MINIMAP_SHOWN", "NPC_HEADER", "NPC_TRAINER", "NPC_VENDOR", "NPC_MAP_BUTTON", "NPC_MAP_TIP", "NPC_PIN_DONE", "NPC_PIN_FAILED", "NPC_NONE", "VISIT_PIN", "DEBUG_NPCS", "SHARE_TITLE", "SHARE_HELP", "SHARE_STATS", "SHARE_EMPTY", "SHARE_CLOSE", "WARN_TRAINER_SHIPPED", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
         assert(type(ns.L[key]) == "string", "texte manquant : " .. key)
     end
 end)
@@ -732,6 +732,46 @@ scenario("PNJ du metier : maitre et marchand notes, liste triee, repere sur la c
     assert(ns.db.npcs["trainer:3355"].map == 1453, "le PNJ doit etre note sur une carte qui accepte les reperes")
     playerMap = 1453
     playerX, playerY = 0.5, 0.6
+end)
+
+scenario("partage : texte sans donnees personnelles, fenetre, recettes de maitre livrees", function()
+    local text = ns.BuildShareText()
+    assert(text:find("ProfessionPath-share 1", 1, true), "en-tete du partage absent")
+    assert(text:find("\nN;trainer;3355;Maitre Test;1453;", 1, true), "maitre absent du partage :\n" .. text)
+    assert(text:find("\nN;vendor;4444;Marchand Test;1453;", 1, true), "marchand absent du partage")
+    -- La recette « Recette inconnue » (numero 9004) est enseignee au niveau 120 pour 500.
+    assert(text:find("\nR;164;9004;120;500", 1, true), "recette de maitre absente du partage :\n" .. text)
+    assert(not text:find("Testeur", 1, true) and not text:find("Royaume", 1, true), "le partage ne doit contenir ni personnage ni royaume")
+
+    -- La commande ouvre la fenetre avec ce texte, pret a copier.
+    SlashCmdList.PROFESSIONPATH("partager")
+    assert(ProfessionPathShareFrame and ProfessionPathShareFrame:IsShown(), "fenetre de partage absente")
+    assert(ProfessionPathShareFrame.box:GetText() == text, "le texte de la fenetre doit etre celui du partage")
+    HoverAll()
+    ProfessionPathShareFrame:Hide()
+
+    -- Recettes de maitre livrees avec l'add-on : elles servent quand le joueur n'a pas lu le maitre.
+    local savedTrainer = ns.db.trainer
+    ns.db.trainer = {}
+    local prof = ns.SelectedProfession()
+    assert(ns.TrainerDataSource(prof) == nil, "sans maitre lu ni liste livree, pas de donnees attendues")
+    ns.TrainerLevels[9004] = { 120, 500 }
+    -- La liste livree peut etre incomplete : elle ne vaut pas un maitre lu, le bandeau reste mais change.
+    assert(ns.TrainerDataSource(prof) == "shipped", "la liste livree doit etre reconnue")
+    assert(not ns.HasTrainerData(prof), "la liste livree ne doit pas compter comme un maitre lu")
+    OpenWindow()
+    ns.RefreshUI()
+    Advance(1)
+    local warning = TrainerWarning()
+    assert(warning and IsVisible(warning), "le bandeau doit rester avec une liste livree seulement")
+    assert(warning.body:GetText() == ns.L.WARN_TRAINER_SHIPPED:format(prof.name), "le bandeau doit dire que la liste vient des autres joueurs")
+    local found
+    for _, recipe in ipairs(ns.RecipesForPlanner(prof)) do
+        if recipe.id == 9004 then found = recipe end
+    end
+    assert(found and found.learnLevel == 120 and found.learnCost == 500 and found.learnSource == "trainer", "recette livree non utilisee")
+    ns.TrainerLevels[9004] = nil
+    ns.db.trainer = savedTrainer
 end)
 
 scenario("etoile chez le marchand : sur les favoris vendus, page par page, pas sur le rachat", function()

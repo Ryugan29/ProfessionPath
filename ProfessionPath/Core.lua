@@ -353,6 +353,23 @@ function ns.TrainerRecipes(prof)
     return FindTrainerRecipes(prof) or {}
 end
 
+-- Vrai si la liste livrée avec l'add-on connaît au moins une recette de ce métier.
+local function HasShippedTrainerData(prof)
+    for _, recipe in ipairs(prof.recipes or {}) do
+        if ns.TrainerLevels[recipe.id] then return true end
+    end
+    return false
+end
+
+-- D'où viennent les recettes du maître pour ce métier : "read" (le joueur l'a lu lui-même),
+-- "shipped" (seulement la liste livrée, partagée par d'autres joueurs, peut-être incomplète), ou nil.
+function ns.TrainerDataSource(prof)
+    if FindTrainerRecipes(prof) ~= nil then return "read" end
+    if HasShippedTrainerData(prof) then return "shipped" end
+    return nil
+end
+
+-- Vrai seulement si le joueur a lu son maître lui-même : c'est la seule source complète.
 function ns.HasTrainerData(prof)
     return FindTrainerRecipes(prof) ~= nil
 end
@@ -369,6 +386,9 @@ function ns.RecipesForPlanner(prof)
         if not coloursAreFresh and difficulty ~= "grey" then difficulty = nil end
         -- Une recette déjà connue n'a plus rien à apprendre chez le maître.
         local taught = not saved.learned and taughtByTrainer[saved.name] or nil
+        -- Maître pas encore lu par ce joueur : la liste livrée avec l'add-on (partages des joueurs).
+        local shipped = not saved.learned and not taught and ns.TrainerLevels[saved.id] or nil
+        if shipped then taught = { level = shipped[1], cost = shipped[2] } end
         local teachingItem = ns.TeachingItems[saved.id]
         list[#list + 1] = {
             -- Le maître lu en jeu fait foi ; sinon, l'objet qui apprend la recette (données du jeu).
@@ -601,6 +621,8 @@ SlashCmdList.PROFESSIONPATH = function(message)
         ScanOnDemand()
     elseif command == "recettes" or command == "recipes" then
         PrintRecipes()
+    elseif command == "partager" or command == "share" then
+        if ns.ShowShare then ns.ShowShare() end
     elseif command == "minimap" then
         if ns.ToggleMinimapButton then ns.ToggleMinimapButton() end
     elseif command == "aide" or command == "help" then

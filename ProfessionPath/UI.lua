@@ -610,8 +610,13 @@ end
 -- Bandeau « parcours provisoire » : affiché tant que le maître du métier n'a pas été lu, car le
 -- parcours ignore alors les recettes qu'il enseigne.
 local function RenderWarning(prof)
-    local show = prof ~= nil and not ns.HasTrainerData(prof)
-    if show then w.warning.body:SetText(L.WARN_TRAINER_BODY:format(prof.name or "?")) end
+    local source = prof and ns.TrainerDataSource(prof)
+    local show = prof ~= nil and source ~= "read"
+    if show then
+        -- Liste partagée par d'autres joueurs : utilisée, mais peut-être incomplète.
+        local body = source == "shipped" and L.WARN_TRAINER_SHIPPED or L.WARN_TRAINER_BODY
+        w.warning.body:SetText(body:format(prof.name or "?"))
+    end
     w.warning:SetShown(show)
 end
 

@@ -56,6 +56,8 @@ Un **bouton sur la mini-carte** ouvre aussi la fenêtre ; glisse-le pour le dép
 
 La section **PNJ du métier** montre ton maître et les marchands de fournitures (ceux de ta zone d'abord) ; le bouton **Carte** pose le repère du jeu sur eux. L'add-on retient leur position quand tu leur parles.
 
+`/mpp partager` ouvre un texte à copier avec les maîtres, marchands et recettes de maître que tu as trouvés : colle-le dans une issue GitHub (modèle « Share trainers and vendors ») pour qu'ils soient ajoutés à l'add-on pour tout le monde. Les contributions sont vérifiées par `node tools/import_shares.js <fichiers>`.
+
 Autres commandes : `/mpp lire` (relit le métier ouvert), `/mpp recettes` (liste les numéros de tes recettes), `/mpp debug` (état technique), `/mpp aide`.
 
 ## Comment les recommandations sont calculées

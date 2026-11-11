@@ -1,0 +1,25 @@
+name: Share trainers and vendors / Partager maîtres et marchands
+description: Paste the text from /ppath share so everyone gets the NPCs and trainer recipes you found. / Colle le texte de /mpp partager.
+title: "[Share] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **EN** — In game, type `/ppath share`, press Ctrl+A then Ctrl+C in the window, and paste below. The text contains the trainers and supplies vendors you met and the trainer recipes you read. It contains no character or realm name.
+
+        **FR** — En jeu, tape `/mpp partager`, fais Ctrl+A puis Ctrl+C dans la fenêtre, et colle ci-dessous. Le texte contient les maîtres et marchands de fournitures rencontrés et les recettes lues chez les maîtres. Il ne contient ni nom de personnage ni royaume.
+  - type: textarea
+    id: share
+    attributes:
+      label: Share text / Texte du partage
+      description: Starts with "ProfessionPath-share 1" / Commence par « ProfessionPath-share 1 »
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes (optional / facultatif)
+      description: Anything worth knowing, e.g. an NPC that moved. / Une remarque, par exemple un PNJ qui a bougé.
+    validations:
+      required: false

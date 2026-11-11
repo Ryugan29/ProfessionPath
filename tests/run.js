@@ -57,5 +57,6 @@ return assert(loadfile(ROOT .. "/tests/smoke_test.lua"))(loadAddonFile, { ${tocF
 `;
 
 const failures =
-  runLua(plannerTest, "planner_test") + runLua(favoritesTest, "favorites_test") + runLua(smokeTest, "smoke_test");
+  runLua(plannerTest, "planner_test") + runLua(favoritesTest, "favorites_test") + runLua(smokeTest, "smoke_test") +
+  require("./import_test.js");
 process.exit(failures === 0 ? 0 : 1);
