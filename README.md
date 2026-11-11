@@ -52,6 +52,10 @@ Dans la fenêtre :
 | **Réinitialiser** | Remet les recettes marquées comme terminées. |
 | **Animations : oui / non** | Coupe les animations de la fenêtre si elles te gênent. |
 
+Un **bouton sur la mini-carte** ouvre aussi la fenêtre ; glisse-le pour le déplacer, `/mpp minimap` le cache ou le réaffiche.
+
+La section **PNJ du métier** montre ton maître et les marchands de fournitures (ceux de ta zone d'abord) ; le bouton **Carte** pose le repère du jeu sur eux. L'add-on retient leur position quand tu leur parles.
+
 Autres commandes : `/mpp lire` (relit le métier ouvert), `/mpp recettes` (liste les numéros de tes recettes), `/mpp debug` (état technique), `/mpp aide`.
 
 ## Comment les recommandations sont calculées

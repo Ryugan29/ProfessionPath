@@ -94,6 +94,20 @@ Step-by-step profession leveling for WoW Forever: what to craft next, how many, 
 3. Les sacs ouverts avec quelques étoiles de favoris.
 4. La fenêtre avec le bandeau « Parcours provisoire » (un métier dont le maître n'est pas lu).
 
+## Notes de version (changelog) — 1.0.0-beta3
+
+Includes 1.0.0-beta2 (never released on its own).
+
+- New "Profession NPCs" section: your profession trainer and supplies vendors, those in your zone first. The add-on remembers where they are once you have talked to them.
+- "Map" button on each NPC, and "Show my trainer" next to trainer visits: places the game map marker with its guiding arrow (one marker at a time).
+- New minimap button with the Profession Path icon: click to open or close the window, drag to move it (square minimaps supported). Type /ppath minimap to hide or show it.
+- The add-on list now shows the Profession Path icon.
+
+## Notes de version (changelog) — 1.0.0-beta2
+
+- New minimap button with the Profession Path icon: click to open or close the window, drag to move it around the minimap (square minimaps supported). Type /ppath minimap to hide or show it.
+- The add-on list now shows the Profession Path icon.
+
 ## Notes de version (changelog) — 1.0.0-beta1
 
 First public beta.

@@ -52,6 +52,7 @@ function widgetMethods:SetColorTexture(r, g, b) assert(IsNumber(r, g, b), "coule
 function widgetMethods:SetTextColor(r, g, b) assert(IsNumber(r, g, b), "couleur de texte invalide") end
 function widgetMethods:SetVerticalScroll(value) assert(IsNumber(value), "defilement invalide") end
 function widgetMethods:CreateTexture() return NewWidget(self) end
+function widgetMethods:CreateMaskTexture() return NewWidget(self) end
 function widgetMethods:CreateFontString() return NewWidget(self) end
 
 function NewWidget(parent)
@@ -81,6 +82,14 @@ end
 
 UIParent = NewWidget()
 GameTooltip = NewWidget()
+-- Fausse mini-carte : 140 pixels de large, centrée en (500, 400). Le curseur se règle dans les scénarios.
+Minimap = NewWidget(UIParent)
+Minimap.GetWidth = function() return 140 end
+Minimap.GetHeight = function() return 140 end
+Minimap.GetCenter = function() return 500, 400 end
+Minimap.GetEffectiveScale = function() return 1 end
+local cursorX, cursorY = 0, 0
+function GetCursorPosition() return cursorX, cursorY end
 GameFontNormal = NewWidget()
 GameFontHighlight = NewWidget()
 UISpecialFrames = {}
@@ -92,7 +101,27 @@ local realPrint = print
 function print(...) printed[#printed + 1] = table.concat({ ... }, " ") end
 
 function GetLocale() return "frFR" end
-function UnitName() return "Testeur" end
+-- Le PNJ en face du joueur (maître ou marchand) change selon le scénario.
+local npcTarget = { name = "Maitre Test", guid = "Creature-0-1-2-3-3355-0000AAAA", faction = "Alliance" }
+function UnitName(unit)
+    if unit == "npc" then return npcTarget.name end
+    return "Testeur"
+end
+function UnitGUID(unit) return unit == "npc" and npcTarget.guid or "Player-1-0000BBBB" end
+function UnitFactionGroup(unit) return unit == "npc" and npcTarget.faction or "Alliance" end
+-- Fausse carte du monde : le joueur est sur la carte 1453 (« Hurlevent »), en (0.5, 0.6).
+local playerMap, playerX, playerY = 1453, 0.5, 0.6
+local pinned = {}
+C_Map = {
+    GetBestMapForUnit = function() return playerMap end,
+    GetPlayerMapPosition = function() return { GetXY = function() return playerX, playerY end } end,
+    -- La carte 7777 est la petite carte d un batiment : pas de repere possible, sa carte parente est 1453.
+    GetMapInfo = function(map) return { name = map == 1453 and "Hurlevent" or ("Carte " .. map), parentMapID = map == 7777 and 1453 or 0 } end,
+    CanSetUserWaypointOnMap = function(map) return map ~= 7777 end,
+    SetUserWaypoint = function(point) pinned.point = point end,
+}
+UiMapPoint = { CreateFromCoordinates = function(map, x, y) return { uiMapID = map, x = x, y = y } end }
+C_SuperTrack = { SetSuperTrackedUserWaypoint = function(on) pinned.tracked = on end }
 function GetRealmName() return "Royaume" end
 function GetBuildInfo() return "1.60.1", "70862", "", 16001 end
 function GetProfessions() return 5, nil, nil, nil, 7 end
@@ -334,7 +363,7 @@ scenario("tous les textes utilises par la fenetre existent", function()
         "TITLE", "DONE", "RESET", "TARGET", "NEXT_HEADER", "STEPS_HEADER", "MATERIALS_HEADER", "NO_PROFESSION",
         "FAV_ADD", "FAV_REMOVE", "FAV_TIP", "FAV_WIDGET", "FAV_NONE_IN_BAGS", "OWNED_BANK", "DEBUG_FAVORITES",
         "HERO_MATERIALS", "PER_CRAFT", "STEP_MATERIALS",
-        "TAB_LEVEL", "TAB_UNREAD", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
+        "TAB_LEVEL", "TAB_UNREAD", "MINIMAP_TIP_CLICK", "MINIMAP_TIP_DRAG", "MINIMAP_TIP_HIDE", "MINIMAP_HIDDEN", "MINIMAP_SHOWN", "NPC_HEADER", "NPC_TRAINER", "NPC_VENDOR", "NPC_MAP_BUTTON", "NPC_MAP_TIP", "NPC_PIN_DONE", "NPC_PIN_FAILED", "NPC_NONE", "VISIT_PIN", "DEBUG_NPCS", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
         assert(type(ns.L[key]) == "string", "texte manquant : " .. key)
     end
 end)
@@ -639,6 +668,72 @@ scenario("objets a preparer soi-meme : detailles dans la liste, annonces dans le
     ns.Crafts[9003], ns.db.vendor[503] = nil, nil
 end)
 
+scenario("PNJ du metier : maitre et marchand notes, liste triee, repere sur la carte", function()
+    -- Le maître de forge a été lu plus haut : il est noté avec sa position.
+    local trainer = ns.db.npcs["trainer:3355"]
+    assert(trainer, "le maitre lu n'a pas ete note")
+    assert(trainer.kind == "trainer" and trainer.name == "Maitre Test", "maitre mal note")
+    assert(trainer.profession == "Forge" and trainer.professionID == 164, "metier du maitre mal note")
+    assert(trainer.map == 1453 and trainer.x == 0.5 and trainer.y == 0.6, "position du maitre mal notee")
+    assert(trainer.faction == "Alliance", "faction du maitre mal notee")
+
+    -- Un marchand qui vend des materiaux de recettes est note avec ce qu'il vend.
+    npcTarget.name, npcTarget.guid = "Marchand Test", "Creature-0-1-2-3-4444-0000CCCC"
+    playerX, playerY = 0.52, 0.61
+    Fire("MERCHANT_SHOW")
+    local vendor = ns.db.npcs["vendor:4444"]
+    assert(vendor and vendor.kind == "vendor", "le marchand n'a pas ete note")
+    assert(vendor.items and vendor.items[501], "le marchand doit retenir les materiaux qu'il vend")
+
+    -- Un PNJ de la Horde ne doit pas etre propose a un joueur de l'Alliance.
+    ns.db.npcs[9999] = { kind = "trainer", name = "Maitre Horde", profession = "Forge", professionID = 164,
+        map = 1453, x = 0.5, y = 0.6, faction = "Horde" }
+    -- Un maitre plus loin, sur une autre carte.
+    ns.db.npcs[8888] = { kind = "trainer", name = "Maitre Lointain", profession = "Forge", professionID = 164,
+        map = 1455, x = 0.1, y = 0.1, faction = "Alliance" }
+    -- Le joueur revient pres du maitre : le plus proche doit passer en tete.
+    playerX, playerY = 0.5, 0.6
+    local list = ns.NpcsFor(ns.SelectedProfession())
+    local names = {}
+    for _, entry in ipairs(list) do names[#names + 1] = entry.npc.name end
+    local joined = table.concat(names, ", ")
+    assert(not joined:find("Horde", 1, true), "un PNJ de l'autre faction est propose : " .. joined)
+    assert(names[1] == "Maitre Test", "le maitre de la zone doit passer en premier : " .. joined)
+    assert(joined:find("Maitre Lointain", 1, true) and joined:find("Marchand Test", 1, true), "liste incomplete : " .. joined)
+
+    -- La fenetre affiche la section, et le bouton « Carte » pose le repere officiel du jeu.
+    OpenWindow()
+    ns.RefreshUI()
+    Advance(1)
+    local mapButton
+    for _, frame in ipairs(allFrames) do
+        if frame.npcPin and IsVisible(frame) and frame.npc and frame.npc.name == "Maitre Lointain" then mapButton = frame end
+    end
+    assert(mapButton, "bouton « Carte » absent pour le maitre lointain")
+    printed = {}
+    mapButton.scripts.OnClick(mapButton)
+    assert(pinned.point and pinned.point.uiMapID == 1455 and pinned.point.x == 0.1, "repere mal pose")
+    assert(pinned.tracked == true, "le repere doit etre suivi (fleche a l'ecran)")
+    assert(#printed == 1, "la pose du repere doit etre annoncee")
+    HoverAll()
+
+    -- Rien de connu pour un metier : la section le dit au lieu de rester vide.
+    local saved = ns.db.npcs
+    ns.db.npcs = {}
+    assert(#ns.NpcsFor(ns.SelectedProfession()) == 0, "aucun PNJ attendu")
+    ns.RefreshUI()
+    Advance(1)
+    ns.db.npcs = saved
+    npcTarget.name, npcTarget.guid = "Maitre Test", "Creature-0-1-2-3-3355-0000AAAA"
+
+    -- Dans un batiment qui a sa propre petite carte, le PNJ est note sur la carte de la ville.
+    playerMap = 7777
+    Fire("TRAINER_SHOW")
+    assert(ns.db.npcs["trainer:3355"].map == 1453, "le PNJ doit etre note sur une carte qui accepte les reperes")
+    playerMap = 1453
+    playerX, playerY = 0.5, 0.6
+end)
+
 scenario("etoile chez le marchand : sur les favoris vendus, page par page, pas sur le rachat", function()
     assert(table.concat(ns.Bags.Hooked(), " "):find("Marchand", 1, true), "marchand non branche")
     local first, second = MerchantItem1ItemButton, MerchantItem2ItemButton
@@ -759,6 +854,56 @@ scenario("onglets de metier : un par metier du personnage, clic direct, non lu e
 
     tabs.Forge.scripts.OnClick(tabs.Forge)
     openProfession = { professionID = 164, professionName = "Forge", skillLevel = 76, maxSkillLevel = 150 }
+end)
+
+scenario("bouton de mini-carte : position, clic, deplacement, masquage", function()
+    local offset = ns.MinimapButtonOffset
+    local function near(a, b) return math.abs(a - b) < 0.01 end
+    -- Mini-carte ronde : sur le cercle, juste au-dela du bord (70 + 5).
+    local x, y = offset(0, 140, 140, "ROUND")
+    assert(near(x, 75) and near(y, 0), "position a droite fausse")
+    x, y = offset(math.pi / 2, 140, 140, nil)
+    assert(near(x, 0) and near(y, 75), "position en haut fausse")
+    x, y = offset(math.pi / 4, 140, 140, "ROUND")
+    assert(near(math.sqrt(x * x + y * y), 75), "en diagonale, le bouton doit rester sur le cercle")
+    -- Mini-carte carree : le bouton suit le bord du carre, coin compris.
+    x, y = offset(math.pi / 4, 140, 140, "SQUARE")
+    assert(near(x, 75) and near(y, 75), "sur une mini-carte carree, la diagonale va au coin")
+    x, y = offset(math.pi, 140, 140, "SQUARE")
+    assert(near(x, -75) and near(y, 0), "position a gauche fausse sur une mini-carte carree")
+
+    local button = ProfessionPathMinimapButton
+    assert(button, "bouton de mini-carte absent")
+    assert(button:IsShown(), "le bouton doit etre visible par defaut")
+    assert(type(ns.db.minimap) == "table" and type(ns.db.minimap.angle) == "number", "position non sauvegardee")
+
+    -- Clic gauche : ouvre puis ferme la fenetre.
+    local wasShown = ProfessionPathFrame and ProfessionPathFrame:IsShown()
+    button.scripts.OnClick(button, "LeftButton")
+    Advance(1)
+    assert(ProfessionPathFrame:IsShown() ~= (wasShown and true or false), "le clic n'a pas bascule la fenetre")
+    button.scripts.OnClick(button, "LeftButton")
+    Advance(1)
+
+    -- Glisser : la position suit le curseur (curseur pose au-dessus du centre).
+    cursorX, cursorY = 500, 600
+    button.scripts.OnDragStart(button)
+    button.scripts.OnUpdate(button, 0.05)
+    button.scripts.OnDragStop(button)
+    assert(near(ns.db.minimap.angle, math.pi / 2), "angle apres deplacement faux : " .. ns.db.minimap.angle)
+    assert(not button.scripts.OnUpdate, "le suivi du curseur doit s'arreter au lacher")
+
+    -- Infobulle.
+    button.scripts.OnEnter(button)
+    button.scripts.OnLeave(button)
+
+    -- /ppath minimap cache puis reaffiche le bouton, et s'en souvient.
+    printed = {}
+    SlashCmdList.PROFESSIONPATH("minimap")
+    assert(not button:IsShown() and ns.db.minimap.hide == true, "le bouton aurait du etre cache")
+    SlashCmdList.PROFESSIONPATH("minimap")
+    assert(button:IsShown() and not ns.db.minimap.hide, "le bouton aurait du reapparaitre")
+    assert(#printed == 2, "chaque bascule doit etre annoncee dans le chat")
 end)
 
 scenario("commandes du chat", function()

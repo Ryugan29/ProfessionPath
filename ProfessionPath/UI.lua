@@ -20,6 +20,8 @@ local MATERIAL_COUNT_WIDTH = 150 -- place pour « 25 + 15 banque / 244 »
 local MAX_VISIBLE_STEPS, MAX_VISIBLE_MATERIALS = 5, 7
 local HERO_MATERIAL_HEIGHT = 22
 local PREPARE_HEIGHT = 22        -- ligne de la section « À préparer toi-même »
+local NPC_ROW_HEIGHT = 24        -- ligne de la section « PNJ du métier »
+local NPC_BUTTON_WIDTH = 60
 local HERO_MATERIALS_GAP = 10    -- espace entre l'explication et les matériaux de la carte
 local HERO_INNER = INNER - 28    -- largeur utile de la carte « Prochaine recette »
 local TAB_SIZE, TAB_GAP = 36, 4  -- onglets de métier, collés au bord droit de la fenêtre
@@ -35,7 +37,7 @@ local CHECK_TEXTURE = "Interface\\Buttons\\UI-CheckBox-Check"
 
 local root
 local w = {}
-local stepRows, materialRows, heroRows, prepareRows, ticks = {}, {}, {}, {}, {}
+local stepRows, materialRows, heroRows, prepareRows, npcRows, ticks = {}, {}, {}, {}, {}, {}
 local tabButtons = {}
 local justOpened = false
 local closing = false
@@ -697,6 +699,52 @@ local function RenderVisits(text)
     w.visits:SetShown(text ~= "")
 end
 
+-- PNJ du métier ------------------------------------------------------------
+
+local function NpcRow(index)
+    local row = npcRows[index]
+    if row then return row end
+    row = NewRow(w.npcs, index, NPC_ROW_HEIGHT)
+    row:ClearAllPoints()
+    row:SetPoint("TOPLEFT", w.npcs, "TOPLEFT", 0, -LABEL_HEIGHT - (index - 1) * NPC_ROW_HEIGHT)
+    row.pin = T.Button(row, NPC_BUTTON_WIDTH, 20, function(self) ns.PinNpc(self.npc, self.zone) end)
+    row.pin.npcPin = true
+    row.pin:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+    row.pin:SetLabel(L.NPC_MAP_BUTTON)
+    row.pin.tooltip = function(self) ShowTextTooltip(self, L.NPC_MAP_BUTTON, L.NPC_MAP_TIP) end
+    row.text = T.Text(row, S.body, C.text)
+    row.text:SetPoint("LEFT", row, "LEFT", 0, 0)
+    row.text:SetPoint("RIGHT", row.pin, "LEFT", -8, 0)
+    row.text:SetWordWrap(false)
+    npcRows[index] = row
+    return row
+end
+
+-- Maîtres et marchands de fournitures du métier affiché, avec un bouton « Carte » chacun.
+-- Le bouton « Mon maître sur la carte » de la section des visites vise le premier maître.
+local function RenderNpcs(prof)
+    local shown = prof and ns.NpcsToShow(prof) or {}
+    local firstTrainer
+    for index, entry in ipairs(shown) do
+        local row = NpcRow(index)
+        local format = entry.npc.kind == "trainer" and L.NPC_TRAINER or L.NPC_VENDOR
+        row.text:SetText(format:format(entry.npc.name, entry.zone))
+        row.pin.npc, row.pin.zone = entry.npc, entry.zone
+        row:Show()
+        if entry.npc.kind == "trainer" and not firstTrainer then firstTrainer = entry end
+    end
+    for index = #shown + 1, #npcRows do
+        npcRows[index]:Hide()
+    end
+    w.npcsEmpty:SetShown(#shown == 0)
+    local height = #shown > 0 and #shown * NPC_ROW_HEIGHT or (w.npcsEmpty:GetStringHeight() + 4)
+    w.npcs:SetHeight(LABEL_HEIGHT + height)
+    w.npcs:SetShown(prof ~= nil)
+    w.visitPin.npc = firstTrainer and firstTrainer.npc or nil
+    w.visitPin.zone = firstTrainer and firstTrainer.zone or nil
+    w.visitPin:SetShown(firstTrainer ~= nil)
+end
+
 -- Petits repères sur la barre, aux niveaux où l'on change de recette.
 local function RenderTicks(plan, target)
     local used = 0
@@ -779,6 +827,7 @@ local function Layout()
     Place(w.hero, heroHeight)
 
     if w.visits:IsShown() then Place(w.visits, LABEL_HEIGHT + w.visitsText:GetStringHeight()) end
+    if w.npcs:IsShown() then Place(w.npcs, w.npcs:GetHeight()) end
     if w.steps:IsShown() then Place(w.steps, LABEL_HEIGHT + w.stepsScroll:GetHeight()) end
     if w.prepare:IsShown() then Place(w.prepare, w.prepare:GetHeight()) end
     if w.materials:IsShown() then Place(w.materials, LABEL_HEIGHT + w.materialsScroll:GetHeight()) end
@@ -800,6 +849,7 @@ local function RenderEmpty()
     RenderHero(nil, "simple", L.NO_PROFESSION)
     RenderWarning(nil)
     RenderVisits("")
+    RenderNpcs(nil)
     RenderSteps({ steps = {} }, false)
     RenderPrepare({})
     RenderMaterials({ materials = {} }, false, 0)
@@ -851,6 +901,7 @@ function ns.RefreshUI()
     RenderHero(first, mode, L.NO_STEP)
     RenderWarning(prof)
     RenderVisits(VisitsText(plan, prof))
+    RenderNpcs(prof)
     local stepCount = RenderSteps(plan, animate)
     -- Les objets que le joueur a intérêt à fabriquer lui-même sont remplacés par leurs matériaux.
     local detail = ns.Planner.ExpandMaterials(plan.materials, sourceOf)
@@ -1060,6 +1111,21 @@ local function BuildLists()
     w.visitsText:SetWidth(INNER)
     w.visitsText:SetWordWrap(true)
     w.visitsText:SetSpacing(3)
+    w.visitPin = T.Button(w.visits, 150, 18, function(self) ns.PinNpc(self.npc, self.zone) end, { autoWidth = true })
+    w.visitPin.npcPin = true
+    w.visitPin:SetPoint("TOPRIGHT", w.visits, "TOPRIGHT", 0, 0)
+    w.visitPin:SetLabel(L.VISIT_PIN)
+    w.visitPin.tooltip = function(self) ShowTextTooltip(self, L.VISIT_PIN, L.NPC_MAP_TIP) end
+    w.visitPin:Hide()
+
+    w.npcs = NewSection()
+    SectionLabel(w.npcs, L.NPC_HEADER)
+    w.npcsEmpty = T.Text(w.npcs, S.small, C.muted)
+    w.npcsEmpty:SetPoint("TOPLEFT", w.npcs, "TOPLEFT", 0, -LABEL_HEIGHT)
+    w.npcsEmpty:SetWidth(INNER)
+    w.npcsEmpty:SetWordWrap(true)
+    w.npcsEmpty:SetText(L.NPC_NONE)
+    w.npcs:Hide()
 
     w.steps = NewSection()
     SectionLabel(w.steps, L.STEPS_HEADER)

@@ -60,6 +60,9 @@ local function InitDB()
     -- Prix lus chez les marchands, communs à tous les personnages :
     -- { [identifiant d'objet] = prix à l'unité en cuivre }
     if type(db.vendor) ~= "table" then db.vendor = {} end
+    -- PNJ rencontrés (maîtres, marchands de fournitures) et leur position, communs à tous les
+    -- personnages : { ["trainer:numéro" ou "vendor:numéro"] = { kind, name, map, x, y, faction, ... } } (voir Npcs.lua)
+    if type(db.npcs) ~= "table" then db.npcs = {} end
     ns.db = db
 end
 
@@ -528,6 +531,7 @@ local function PrintDebug()
     for _ in pairs(ns.db.vendor) do readPrices = readPrices + 1 end
     for _ in pairs(ns.VendorPrices) do shippedPrices = shippedPrices + 1 end
     print(L.DEBUG_VENDOR:format(readPrices, shippedPrices))
+    if ns.CountNpcs then print(L.DEBUG_NPCS:format(ns.CountNpcs())) end
 
     local events = {}
     for event, count in pairs(eventCounts) do
@@ -597,6 +601,8 @@ SlashCmdList.PROFESSIONPATH = function(message)
         ScanOnDemand()
     elseif command == "recettes" or command == "recipes" then
         PrintRecipes()
+    elseif command == "minimap" then
+        if ns.ToggleMinimapButton then ns.ToggleMinimapButton() end
     elseif command == "aide" or command == "help" then
         Print(L.HELP)
     else

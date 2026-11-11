@@ -77,6 +77,8 @@ local function ReadAndReport()
     if not ns.db then return end
     local profession, changed = ReadTrainer()
     if not profession then return end
+    -- On retient aussi où se trouve ce maître, pour pouvoir le montrer sur la carte.
+    if ns.RecordTrainerNpc then ns.RecordTrainerNpc(profession) end
     WarnAboutFilter()
     if announce or changed > 0 then
         ns.Print(L.TRAINER_READ:format(profession, CountEntries(ns.db.trainer[profession]), changed))

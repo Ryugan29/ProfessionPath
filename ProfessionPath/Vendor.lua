@@ -95,6 +95,8 @@ end
 local function ReadAndReport()
     readPending = false
     if not ns.db then return end
+    -- On retient aussi où se trouve ce marchand, s'il vend des matériaux de métier.
+    if ns.RecordVendorNpc then ns.RecordVendorNpc() end
     local seen, changed = ReadMerchant()
     if changed == 0 then return end
     ns.Print(L.VENDOR_READ:format(seen, changed))
