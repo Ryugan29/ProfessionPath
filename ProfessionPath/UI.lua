@@ -7,6 +7,8 @@ local C, S, D = T.colors, T.sizes, T.durations
 
 local WIDTH, PAD = 460, 16
 local INNER = WIDTH - 2 * PAD
+local COLUMN_GAP = 24                              -- espace entre les deux colonnes du mode rectangle
+local WIDE_WIDTH = 2 * PAD + 2 * INNER + COLUMN_GAP -- largeur du mode rectangle
 local LIST_WIDTH = INNER - 8
 local HEADER_HEIGHT = 38
 local GAP = 14
@@ -540,6 +542,7 @@ local function RenderMaterials(plan, animate, offset)
         materialRows[index]:Hide()
     end
     w.materials:SetShown(shown > 0)
+    w.materialsShown = shown -- Layout() en a besoin pour le mode rectangle
     w.materialsScroll:SetContent(math.min(shown, MAX_VISIBLE_MATERIALS) * MATERIAL_HEIGHT, shown * MATERIAL_HEIGHT)
 end
 
@@ -801,13 +804,34 @@ local function RenderHero(step, mode, message)
 end
 
 -- Empile les zones de haut en bas et ajuste la hauteur de la fenêtre à son contenu.
+-- Deux affichages : « column » (une colonne, de haut en bas) et « wide » (un rectangle en deux
+-- colonnes : à gauche ce qu'on fabrique, à droite ce qu'il faut pour le fabriquer).
+-- Ce sont les mêmes blocs : seul leur placement change. Choix gardé dans ProfessionPathDB.layout.
+local function IsWide()
+    return ns.db.layout == "wide"
+end
+
+-- Mode rectangle : nombre de lignes de matériaux visibles sans faire défiler. La liste s'allonge
+-- dans la place libre de la colonne de droite, sans la rendre plus haute que celle de gauche.
+-- Jamais moins que le mode colonne, jamais plus que de matériaux.
+function ns.WideMaterialRows(shown, leftHeight, rightHeight, footerHeight)
+    local free = leftHeight - rightHeight - footerHeight - 2 * GAP
+    local rows = math.floor((free - LABEL_HEIGHT) / MATERIAL_HEIGHT)
+    return math.min(shown, math.max(MAX_VISIBLE_MATERIALS, rows))
+end
+
 local function Layout()
-    local y = HEADER_HEIGHT + GAP
-    local function Place(frame, height)
+    local wide = IsWide()
+    local top = HEADER_HEIGHT + GAP
+    local heights = { left = top, right = top }
+    -- column : colonne où va le bloc en mode rectangle ; en mode colonne, tout va à gauche.
+    local function Place(frame, height, column)
+        column = wide and column or "left"
+        local x = column == "right" and (PAD + INNER + COLUMN_GAP) or PAD
         frame:ClearAllPoints()
-        frame:SetPoint("TOPLEFT", root, "TOPLEFT", PAD, -y)
+        frame:SetPoint("TOPLEFT", root, "TOPLEFT", x, -heights[column])
         frame:SetHeight(height)
-        y = y + height + GAP
+        heights[column] = heights[column] + height + GAP
     end
 
     Place(w.controls, 24)
@@ -831,17 +855,33 @@ local function Layout()
     end
     Place(w.hero, heroHeight)
 
-    if w.visits:IsShown() then Place(w.visits, LABEL_HEIGHT + w.visitsText:GetStringHeight()) end
-    if w.npcs:IsShown() then Place(w.npcs, w.npcs:GetHeight()) end
-    if w.steps:IsShown() then Place(w.steps, LABEL_HEIGHT + w.stepsScroll:GetHeight()) end
-    if w.prepare:IsShown() then Place(w.prepare, w.prepare:GetHeight()) end
-    if w.materials:IsShown() then Place(w.materials, LABEL_HEIGHT + w.materialsScroll:GetHeight()) end
+    if w.visits:IsShown() then Place(w.visits, LABEL_HEIGHT + w.visitsText:GetStringHeight(), "left") end
+    if w.npcs:IsShown() then Place(w.npcs, w.npcs:GetHeight(), "right") end
+    if w.steps:IsShown() then Place(w.steps, LABEL_HEIGHT + w.stepsScroll:GetHeight(), "left") end
+    if w.prepare:IsShown() then Place(w.prepare, w.prepare:GetHeight(), "right") end
 
     local notesHeight = (w.notes:GetText() or "") ~= "" and (w.notes:GetStringHeight() + 8) or 0
+    if w.materials:IsShown() then
+        -- Nombre de lignes visibles : fixe en colonne, selon la place libre en rectangle.
+        local shown = w.materialsShown or 0
+        local visible = math.min(shown, MAX_VISIBLE_MATERIALS)
+        if wide then visible = ns.WideMaterialRows(shown, heights.left, heights.right, notesHeight + 22) end
+        w.materialsScroll:SetContent(visible * MATERIAL_HEIGHT, shown * MATERIAL_HEIGHT)
+        Place(w.materials, LABEL_HEIGHT + w.materialsScroll:GetHeight(), "right")
+    end
     w.footerRow:ClearAllPoints()
     w.footerRow:SetPoint("TOPLEFT", w.footer, "TOPLEFT", 0, -notesHeight)
-    Place(w.footer, notesHeight + 22)
-    root:SetHeight(y - GAP + PAD)
+    Place(w.footer, notesHeight + 22, "right")
+
+    root:SetWidth(wide and WIDE_WIDTH or WIDTH)
+    root:SetHeight(math.max(heights.left, heights.right) - GAP + PAD)
+    w.columnDivider:SetShown(wide)
+end
+
+-- Passe d'un affichage à l'autre (bouton du bas, ou /ppath affichage).
+function ns.ToggleLayout()
+    ns.db.layout = IsWide() and "column" or "wide"
+    ns.RefreshUI()
 end
 
 local function RenderEmpty()
@@ -868,6 +908,7 @@ function ns.RefreshUI()
     local mode = CurrentMode()
     w.modePill:SetLabel(L.MODE:format(L["MODE_" .. mode]))
     w.animToggle:SetLabel(ns.db.reduceMotion and L.ANIM_OFF or L.ANIM_ON)
+    w.layoutToggle:SetLabel(IsWide() and L.LAYOUT_WIDE or L.LAYOUT_COLUMN)
     RenderTabs()
 
     local prof = ns.SelectedProfession()
@@ -1183,16 +1224,104 @@ local function BuildFooter()
     w.animToggle:SetPoint("LEFT", w.footerRow, "LEFT", 0, 0)
     w.animToggle.tooltip = function(self) ShowTextTooltip(self, L.ANIM_ON, L.ANIM_TIP) end
 
+    w.layoutToggle = T.Button(w.footerRow, 140, 22, function() ns.ToggleLayout() end, { autoWidth = true })
+    w.layoutToggle.layoutToggle = true
+    w.layoutToggle:SetPoint("LEFT", w.animToggle, "RIGHT", 8, 0)
+    w.layoutToggle.tooltip = function(self)
+        ShowTextTooltip(self, IsWide() and L.LAYOUT_WIDE or L.LAYOUT_COLUMN, L.LAYOUT_TIP)
+    end
+
     w.resetButton = T.Button(w.footerRow, 150, 22, ResetDone, { autoWidth = true })
     w.resetButton:SetPoint("RIGHT", w.footerRow, "RIGHT", 0, 0)
     w.resetButton.tooltip = function(self) ShowTextTooltip(self, L.DONE, L.RESET_TIP) end
+end
+
+-- Taille de la fenêtre --------------------------------------------------------
+-- La poignée du coin bas droit agrandit ou réduit toute la fenêtre d'un bloc (zoom), en gardant
+-- son coin haut gauche à la même place. La taille est mémorisée : ProfessionPathDB.scale.
+
+local MIN_SCALE, MAX_SCALE = 0.6, 1.3
+local OPEN_OFFSET_Y = 300 -- à l'ouverture, le haut de la fenêtre est 300 pixels au-dessus du centre
+local GRIP_SIZE = 14
+
+local function ClampScale(scale)
+    if type(scale) ~= "number" then return 1 end
+    return math.max(MIN_SCALE, math.min(MAX_SCALE, scale))
+end
+
+local function ApplyScale(scale)
+    scale = ClampScale(scale)
+    local old = root:GetScale() or 1
+    local left, top = root:GetLeft(), root:GetTop()
+    root:SetScale(scale)
+    -- Les positions s'expriment à l'échelle de la fenêtre : on les convertit pour que le coin
+    -- haut gauche ne bouge pas à l'écran.
+    if left and top then
+        root:ClearAllPoints()
+        root:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left * old / scale, top * old / scale)
+    end
+    ns.db.scale = scale
+end
+
+-- Position du curseur, dans les mêmes unités que la taille de la fenêtre à l'écran.
+local function CursorPosition()
+    local x, y = GetCursorPosition()
+    local unit = UIParent:GetEffectiveScale() or 1
+    return x / unit, y / unit
+end
+
+local function BuildResizeGrip()
+    local grip = CreateFrame("Button", nil, root)
+    grip.resizeGrip = true
+    grip:SetSize(GRIP_SIZE, GRIP_SIZE)
+    grip:SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", -1, 1)
+    grip:SetFrameLevel((root:GetFrameLevel() or 1) + 10)
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    grip:RegisterForClicks("LeftButtonUp")
+
+    -- Pendant le glisser : la nouvelle taille suit l'écart entre la souris et son point de départ,
+    -- en moyenne sur la largeur et la hauteur (tirer vers le bas à droite agrandit).
+    local function Follow(self)
+        local x, y = CursorPosition()
+        local start = self.start
+        local widthRatio = (start.width + (x - start.x)) / start.width
+        local heightRatio = (start.height + (start.y - y)) / start.height
+        ApplyScale(start.scale * (widthRatio + heightRatio) / 2)
+    end
+
+    grip:SetScript("OnMouseDown", function(self, button)
+        if button ~= "LeftButton" then return end
+        local scale = root:GetScale() or 1
+        local x, y = CursorPosition()
+        local width, height = (root:GetWidth() or 0) * scale, (root:GetHeight() or 0) * scale
+        if width <= 0 or height <= 0 then return end
+        GameTooltip:Hide()
+        self.start = { x = x, y = y, scale = scale, width = width, height = height }
+        self:SetScript("OnUpdate", Follow)
+    end)
+    local function Stop(self)
+        self:SetScript("OnUpdate", nil)
+        self.start = nil
+    end
+    grip:SetScript("OnMouseUp", Stop)
+    -- Fenêtre fermée (Échap) pendant un glisser : le bouton relâché ne serait jamais vu.
+    grip:SetScript("OnHide", Stop)
+    grip:SetScript("OnDoubleClick", function(self)
+        -- Le second appui a relancé un glisser : on l'arrête, sinon il annulerait la remise à zéro.
+        Stop(self)
+        ApplyScale(1)
+    end)
+    grip:SetScript("OnEnter", function(self) ShowTextTooltip(self, L.RESIZE_TITLE, L.RESIZE_TIP) end)
+    grip:SetScript("OnLeave", function() GameTooltip:Hide() end)
 end
 
 local function Build()
     root = CreateFrame("Frame", "ProfessionPathFrame", UIParent)
     root:SetSize(WIDTH, 400)
     -- Accrochée par le haut : quand la hauteur change, le haut de la fenêtre ne bouge pas.
-    root:SetPoint("TOP", UIParent, "CENTER", 0, 300)
+    root:SetPoint("TOP", UIParent, "CENTER", 0, OPEN_OFFSET_Y)
     root:SetFrameStrata("MEDIUM")
     root:SetToplevel(true)
     root:SetMovable(true)
@@ -1227,6 +1356,20 @@ local function Build()
     BuildHero()
     BuildLists()
     BuildFooter()
+    BuildResizeGrip()
+    -- Trait vertical entre les deux colonnes du mode rectangle.
+    w.columnDivider = T.Fill(root, "BORDER", C.border)
+    w.columnDivider:SetWidth(1)
+    w.columnDivider:SetPoint("TOPLEFT", root, "TOPLEFT", PAD + INNER + COLUMN_GAP / 2, -(HEADER_HEIGHT + GAP))
+    w.columnDivider:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", PAD + INNER + COLUMN_GAP / 2, PAD)
+    w.columnDivider:Hide()
+    root.sections = w -- pour les tests hors du jeu : vérifier où chaque bloc est placé
+    -- La taille choisie la dernière fois. Le décalage de départ s'exprime à l'échelle de la fenêtre :
+    -- on le convertit pour qu'elle s'ouvre au même endroit quelle que soit sa taille.
+    local scale = ClampScale(ns.db.scale)
+    root:SetScale(scale)
+    root:ClearAllPoints()
+    root:SetPoint("TOP", UIParent, "CENTER", 0, OPEN_OFFSET_Y / scale)
 
     root:SetScript("OnShow", function()
         justOpened = true

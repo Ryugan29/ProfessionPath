@@ -94,6 +94,11 @@ Step-by-step profession leveling for WoW Forever: what to craft next, how many, 
 3. Les sacs ouverts avec quelques étoiles de favoris.
 4. La fenêtre avec le bandeau « Parcours provisoire » (un métier dont le maître n'est pas lu).
 
+## Notes de version (changelog) — 1.0.0-beta6
+
+- New wide layout: click "Layout" at the bottom of the window (or type /ppath layout) to switch between the tall column and a wide two-column rectangle that takes less height on screen. Your choice is remembered. In the wide layout, the materials list grows to use the free space of the right column.
+- Resize the window: drag the grip in the bottom-right corner to make the whole window bigger or smaller (60% to 130%). Double-click the grip to go back to the original size. The size is remembered.
+
 ## Notes de version (changelog) — 1.0.0-beta5
 
 Includes 1.0.0-beta4 (share command).

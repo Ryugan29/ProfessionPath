@@ -623,6 +623,8 @@ SlashCmdList.PROFESSIONPATH = function(message)
         PrintRecipes()
     elseif command == "partager" or command == "share" then
         if ns.ShowShare then ns.ShowShare() end
+    elseif command == "affichage" or command == "layout" then
+        if ns.ToggleLayout then ns.ToggleLayout() end
     elseif command == "minimap" then
         if ns.ToggleMinimapButton then ns.ToggleMinimapButton() end
     elseif command == "aide" or command == "help" then

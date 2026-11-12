@@ -42,12 +42,19 @@ function widgetMethods:SetText(text) self.shownText = text end
 function widgetMethods:GetText() return self.shownText end
 function widgetMethods:SetHeight(height) assert(IsNumber(height), "hauteur invalide") self.shownHeight = height end
 function widgetMethods:GetHeight() return self.shownHeight or 0 end
-function widgetMethods:SetWidth(width) assert(IsNumber(width), "largeur invalide") end
+function widgetMethods:SetWidth(width) assert(IsNumber(width), "largeur invalide") self.shownWidth = width end
+function widgetMethods:GetWidth() return self.shownWidth or 0 end
+function widgetMethods:SetScale(scale) assert(IsNumber(scale) and scale > 0, "echelle invalide") self.shownScale = scale end
+function widgetMethods:GetScale() return self.shownScale or 1 end
 function widgetMethods:SetSize(width, height) self:SetWidth(width) self:SetHeight(height) end
 function widgetMethods:SetAlpha(alpha) assert(IsNumber(alpha), "opacite invalide") self.shownAlpha = alpha end
 function widgetMethods:GetAlpha() return self.shownAlpha or 1 end
 function widgetMethods:GetParent() return self.parentWidget end
-function widgetMethods:SetPoint(point) assert(type(point) == "string", "point d'ancrage invalide") end
+function widgetMethods:SetPoint(point, ...)
+    assert(type(point) == "string", "point d'ancrage invalide")
+    -- Dernier ancrage, pour verifier ou un bloc est place : { point, cadre, point relatif, x, y }.
+    self.lastPoint = { point, ... }
+end
 function widgetMethods:SetColorTexture(r, g, b) assert(IsNumber(r, g, b), "couleur invalide") end
 function widgetMethods:SetTextColor(r, g, b) assert(IsNumber(r, g, b), "couleur de texte invalide") end
 function widgetMethods:SetVerticalScroll(value) assert(IsNumber(value), "defilement invalide") end
@@ -83,6 +90,7 @@ end
 UIParent = NewWidget()
 GameTooltip = NewWidget()
 -- Fausse mini-carte : 140 pixels de large, centrée en (500, 400). Le curseur se règle dans les scénarios.
+UIParent.GetEffectiveScale = function() return 1 end
 Minimap = NewWidget(UIParent)
 Minimap.GetWidth = function() return 140 end
 Minimap.GetHeight = function() return 140 end
@@ -363,7 +371,7 @@ scenario("tous les textes utilises par la fenetre existent", function()
         "TITLE", "DONE", "RESET", "TARGET", "NEXT_HEADER", "STEPS_HEADER", "MATERIALS_HEADER", "NO_PROFESSION",
         "FAV_ADD", "FAV_REMOVE", "FAV_TIP", "FAV_WIDGET", "FAV_NONE_IN_BAGS", "OWNED_BANK", "DEBUG_FAVORITES",
         "HERO_MATERIALS", "PER_CRAFT", "STEP_MATERIALS",
-        "TAB_LEVEL", "TAB_UNREAD", "MINIMAP_TIP_CLICK", "MINIMAP_TIP_DRAG", "MINIMAP_TIP_HIDE", "MINIMAP_HIDDEN", "MINIMAP_SHOWN", "NPC_HEADER", "NPC_TRAINER", "NPC_VENDOR", "NPC_MAP_BUTTON", "NPC_MAP_TIP", "NPC_PIN_DONE", "NPC_PIN_FAILED", "NPC_NONE", "VISIT_PIN", "DEBUG_NPCS", "SHARE_TITLE", "SHARE_HELP", "SHARE_STATS", "SHARE_EMPTY", "SHARE_CLOSE", "WARN_TRAINER_SHIPPED", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
+        "TAB_LEVEL", "TAB_UNREAD", "MINIMAP_TIP_CLICK", "MINIMAP_TIP_DRAG", "MINIMAP_TIP_HIDE", "MINIMAP_HIDDEN", "MINIMAP_SHOWN", "NPC_HEADER", "NPC_TRAINER", "NPC_VENDOR", "NPC_MAP_BUTTON", "NPC_MAP_TIP", "NPC_PIN_DONE", "NPC_PIN_FAILED", "NPC_NONE", "VISIT_PIN", "DEBUG_NPCS", "SHARE_TITLE", "SHARE_HELP", "SHARE_STATS", "SHARE_EMPTY", "SHARE_CLOSE", "WARN_TRAINER_SHIPPED", "RESIZE_TITLE", "RESIZE_TIP", "LAYOUT_COLUMN", "LAYOUT_WIDE", "LAYOUT_TIP", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
         assert(type(ns.L[key]) == "string", "texte manquant : " .. key)
     end
 end)
@@ -944,6 +952,101 @@ scenario("bouton de mini-carte : position, clic, deplacement, masquage", functio
     SlashCmdList.PROFESSIONPATH("minimap")
     assert(button:IsShown() and not ns.db.minimap.hide, "le bouton aurait du reapparaitre")
     assert(#printed == 2, "chaque bascule doit etre annoncee dans le chat")
+end)
+
+scenario("poignee : agrandir et reduire la fenetre a la souris, double-clic pour revenir", function()
+    OpenWindow()
+    local grip
+    for _, frame in ipairs(allFrames) do
+        if frame.resizeGrip then grip = frame end
+    end
+    assert(grip and IsVisible(grip), "poignee absente du coin de la fenetre")
+    local window = ProfessionPathFrame
+    assert(window:GetScale() == 1, "taille d'origine attendue au depart")
+    local function Drag(dx, dy)
+        grip.scripts.OnMouseDown(grip, "LeftButton")
+        cursorX, cursorY = cursorX + dx, cursorY - dy
+        grip.scripts.OnUpdate(grip, 0.05)
+        grip.scripts.OnMouseUp(grip, "LeftButton")
+    end
+
+    -- Tirer le coin de 10 % de la largeur et de la hauteur agrandit la fenetre de 10 %.
+    cursorX, cursorY = 1000, 500
+    Drag(window:GetWidth() * 0.1, window:GetHeight() * 0.1)
+    assert(math.abs(window:GetScale() - 1.1) < 0.01, "taille attendue 110 %, obtenue " .. window:GetScale())
+    assert(math.abs(ns.db.scale - 1.1) < 0.01, "la taille doit etre memorisee")
+    assert(not grip.scripts.OnUpdate, "le suivi de la souris doit s'arreter au lacher")
+
+    -- Les limites : jamais plus de 130 %, jamais moins de 60 %.
+    Drag(5000, 5000)
+    assert(window:GetScale() == 1.3, "limite haute non respectee : " .. window:GetScale())
+    Drag(-9000, -9000)
+    assert(window:GetScale() == 0.6, "limite basse non respectee : " .. window:GetScale())
+
+    -- Un autre bouton que le gauche ne fait rien ; le double-clic remet la taille d'origine.
+    grip.scripts.OnMouseDown(grip, "RightButton")
+    assert(not grip.scripts.OnUpdate, "seul le clic gauche redimensionne")
+    -- Le double-clic commence par un appui : il doit arreter le suivi de la souris avant de remettre
+    -- la taille d'origine, sinon le glisser en cours la remplacerait aussitot.
+    grip.scripts.OnMouseDown(grip, "LeftButton")
+    grip.scripts.OnDoubleClick(grip, "LeftButton")
+    assert(not grip.scripts.OnUpdate, "le double-clic doit arreter le redimensionnement en cours")
+    assert(window:GetScale() == 1 and ns.db.scale == 1, "le double-clic doit remettre la taille d'origine")
+    -- Fenetre fermee (Echap) pendant un glisser : le suivi doit s'arreter.
+    grip.scripts.OnMouseDown(grip, "LeftButton")
+    grip.scripts.OnHide(grip)
+    assert(not grip.scripts.OnUpdate, "fermer la fenetre doit arreter le redimensionnement")
+    grip.scripts.OnEnter(grip)
+    grip.scripts.OnLeave(grip)
+end)
+
+scenario("affichage : colonne par defaut, rectangle en deux colonnes, choix memorise", function()
+    OpenWindow()
+    ns.RefreshUI()
+    Advance(1)
+    local window = ProfessionPathFrame
+    local sections = window.sections
+    local function X(frame) return frame.lastPoint and frame.lastPoint[4] end
+    local toggle
+    for _, frame in ipairs(allFrames) do
+        if frame.layoutToggle then toggle = frame end
+    end
+    assert(toggle and IsVisible(toggle), "bouton d'affichage absent")
+
+    -- Colonne : tout est aligne a gauche, l'un sous l'autre.
+    assert(ns.db.layout ~= "wide", "le mode colonne doit etre celui de depart")
+    local columnWidth, columnHeight = window:GetWidth(), window:GetHeight()
+    assert(X(sections.hero) == X(sections.materials), "en colonne, recette et materiaux sont alignes")
+
+    -- Rectangle : deux fois plus large, moins haut, materiaux dans la colonne de droite.
+    toggle.scripts.OnClick(toggle)
+    Advance(1)
+    assert(ns.db.layout == "wide", "le choix doit etre memorise")
+    assert(window:GetWidth() > columnWidth * 1.8, "le rectangle doit etre bien plus large")
+    assert(window:GetHeight() < columnHeight, "le rectangle doit etre moins haut")
+    -- Seuls les blocs affiches sont places (le parcours d'essai peut ne rien avoir a preparer, etc.).
+    local right, left = X(sections.footer), X(sections.hero)
+    assert(right > left, "le bas de la fenetre doit passer dans la colonne de droite")
+    for _, name in ipairs({ "npcs", "prepare", "materials" }) do
+        if sections[name]:IsShown() then assert(X(sections[name]) == right, name .. " doit etre a droite") end
+    end
+    for _, name in ipairs({ "visits", "steps" }) do
+        if sections[name]:IsShown() then assert(X(sections[name]) == left, name .. " doit etre a gauche") end
+    end
+    HoverAll()
+
+    -- En rectangle, la liste des materiaux s'allonge pour remplir la colonne de droite :
+    -- jamais moins de 7 lignes, jamais plus que de materiaux, jamais plus haut que la colonne de gauche.
+    local rows = ns.WideMaterialRows
+    assert(rows(30, 1400, 400, 22) == 30, "assez de place : tous les materiaux doivent s'afficher")
+    assert(rows(30, 600, 300, 22) == math.floor((600 - 300 - 22 - 2 * 14 - 20) / 26), "le nombre de lignes doit suivre la place libre")
+    assert(rows(30, 300, 300, 22) == 7, "jamais moins de 7 lignes")
+    assert(rows(4, 1000, 300, 22) == 4, "jamais plus de lignes que de materiaux")
+
+    -- La commande du chat ramene au mode colonne.
+    SlashCmdList.PROFESSIONPATH("affichage")
+    Advance(1)
+    assert(ns.db.layout == "column" and window:GetWidth() == columnWidth, "retour au mode colonne attendu")
 end)
 
 scenario("commandes du chat", function()
