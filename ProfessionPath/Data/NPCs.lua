@@ -1,25 +1,19 @@
 -- Profession Path — maîtres de métier et marchands de fournitures, livrés avec l'add-on.
+-- FICHIER FABRIQUÉ par tools/import_shares.js à partir des partages des joueurs (/ppath partager) :
+-- ne pas le modifier à la main. Source : tools/community.json.
 --
--- D'OÙ VIENNENT CES POSITIONS
---   Les fichiers du jeu ne disent pas où se trouvent les PNJ : c'est gardé sur le serveur.
---   Chaque entrée vient d'un PNJ réellement rencontré en jeu sur WoW Forever (lu par Npcs.lua).
---   Aucune position n'est reprise d'une autre version du jeu ni d'un autre add-on.
+-- Les fichiers du jeu ne disent pas où se trouvent les PNJ. Chaque entrée vient d'un PNJ réellement
+-- rencontré en jeu sur WoW Forever par un joueur, puis vérifiée. Rien n'est repris d'une autre
+-- version du jeu ni d'un autre add-on. Un PNJ que le joueur a rencontré lui-même remplace celui-ci.
 --
--- FORME
---   ["trainer:numéro du PNJ"] ou ["vendor:numéro du PNJ"] = {
---       kind = "trainer" (maître) ou "vendor" (marchand de fournitures),
---       name = nom du PNJ, map = numéro de la carte, x et y = position sur cette carte (0 à 1),
---       faction = "Alliance", "Horde" ou nil (neutre),
---       profession = nom du métier (maître seulement), professionID = numéro du métier,
---       items = { [numéro d'objet] = true } (marchand seulement : matériaux de métier vendus),
---   },
---
--- PRIORITÉ
---   Un PNJ que le joueur a rencontré lui-même remplace celui de cette liste.
+-- Forme : ["trainer:numéro"] ou ["vendor:numéro"] = { kind, name, map, x, y, faction,
+--         professionID et profession (maître), items (marchand : matériaux de métier vendus) }
 
 local _, ns = ...
 
-ns.NPCsBuild = nil -- version du jeu sur laquelle la liste a été relevée
+ns.NPCsBuild = "1.60.1.70888" -- version du jeu des relevés
 
 ns.NPCs = {
+    ["trainer:1292"] = { kind = "trainer", name = "Maris Granger", map = 1453, x = 0.7202, y = 0.6233, faction = "Alliance", professionID = 393, profession = "Dépeçage" },
+    ["trainer:5564"] = { kind = "trainer", name = "Simon Tanner", map = 1453, x = 0.718, y = 0.6291, faction = "Alliance", professionID = 165, profession = "Travail du cuir" },
 }

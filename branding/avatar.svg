@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <!-- Photo de profil de l'auteur « Ryugan » : un œil de dragon (ryū = dragon, gan = œil),
+       aux couleurs de Profession Path (anthracite et ambre). Dessin original.
+       Tout tient dans le cercle central : l'image reste correcte si le site la découpe en rond. -->
+  <defs>
+    <radialGradient id="bg" cx="40%" cy="35%" r="80%">
+      <stop offset="0" stop-color="#1f232b"/>
+      <stop offset="1" stop-color="#0a0b0e"/>
+    </radialGradient>
+    <radialGradient id="iris" cx="50%" cy="45%" r="55%">
+      <stop offset="0" stop-color="#ffe2a0"/>
+      <stop offset="0.45" stop-color="#f5ad38"/>
+      <stop offset="1" stop-color="#9a4a14"/>
+    </radialGradient>
+    <clipPath id="eye">
+      <path d="M72 200 Q200 78 328 200 Q200 322 72 200 Z"/>
+    </clipPath>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+
+  <rect width="400" height="400" fill="url(#bg)"/>
+  <circle cx="200" cy="200" r="182" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="3"/>
+
+  <!-- Arcade et écailles au-dessus de l'œil -->
+  <path d="M86 150 Q200 52 314 150" fill="none" stroke="#f5ad38" stroke-opacity="0.55"
+        stroke-width="7" stroke-linecap="round"/>
+  <path d="M122 118 Q200 70 278 118" fill="none" stroke="#f5ad38" stroke-opacity="0.25"
+        stroke-width="5" stroke-linecap="round"/>
+  <path d="M110 268 Q200 318 290 268" fill="none" stroke="#f5ad38" stroke-opacity="0.25"
+        stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Lueur de l'œil -->
+  <path d="M72 200 Q200 78 328 200 Q200 322 72 200 Z" fill="#f5ad38" fill-opacity="0.35" filter="url(#glow)"/>
+
+  <!-- L'œil -->
+  <path d="M72 200 Q200 78 328 200 Q200 322 72 200 Z" fill="#0e0f13"/>
+  <g clip-path="url(#eye)">
+    <circle cx="200" cy="200" r="80" fill="url(#iris)"/>
+    <g stroke="#7a3a10" stroke-opacity="0.35" stroke-width="2">
+      <line x1="200" y1="120" x2="200" y2="150"/>
+      <line x1="200" y1="250" x2="200" y2="280"/>
+      <line x1="143" y1="143" x2="164" y2="164"/>
+      <line x1="236" y1="236" x2="257" y2="257"/>
+      <line x1="257" y1="143" x2="236" y2="164"/>
+      <line x1="164" y1="236" x2="143" y2="257"/>
+    </g>
+    <path d="M200 124 Q224 200 200 276 Q176 200 200 124 Z" fill="#0a0b0e"/>
+    <circle cx="228" cy="170" r="10" fill="#ffffff" fill-opacity="0.75"/>
+  </g>
+  <path d="M72 200 Q200 78 328 200 Q200 322 72 200 Z" fill="none" stroke="#f5ad38"
+        stroke-width="7" stroke-linejoin="round"/>
+</svg>

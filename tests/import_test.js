@@ -47,7 +47,7 @@ test("refuse les lignes douteuses en disant pourquoi", () => {
   assert.strictEqual(share.rejected.length, 4, reasons);
   assert.match(reasons, /aucun matériau/);
   assert.match(reasons, /position/);
-  assert.match(reasons, /recette inconnue/);
+  assert.match(reasons, /recette absente des données de l'add-on/);
   assert.match(reasons, /niveau/);
 });
 

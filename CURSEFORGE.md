@@ -94,6 +94,12 @@ Step-by-step profession leveling for WoW Forever: what to craft next, how many, 
 3. Les sacs ouverts avec quelques étoiles de favoris.
 4. La fenêtre avec le bandeau « Parcours provisoire » (un métier dont le maître n'est pas lu).
 
+## Notes de version (changelog) — 1.0.0-beta5
+
+Includes 1.0.0-beta4 (share command).
+
+- First community data: 2 Stormwind trainers (Leatherworking, Skinning) and 42 trainer recipe levels (Leatherworking, First Aid, Cooking), shared with /ppath share and checked before inclusion.
+
 ## Notes de version (changelog) — 1.0.0-beta4
 
 - New /ppath share command: copy the trainers and vendors you met and the trainer recipes you read, and paste them in a GitHub issue (template provided). Shared data is checked and added to the add-on for everyone. No character or realm name is shared.

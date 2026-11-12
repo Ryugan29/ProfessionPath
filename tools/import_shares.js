@@ -71,7 +71,11 @@ function parseRecipe(fields, knownRecipes) {
   const [, , recipeText, levelText, costText] = fields;
   if (fields.length !== 5) return { reason: "nombre de champs inattendu" };
   const recipeID = intOrNull(recipeText, 1, MAX_ID);
-  if (recipeID === null || !knownRecipes.has(recipeID)) return { reason: "recette inconnue des données du jeu" };
+  // Absente des seuils : recette inconnue, ou sans plage de progression (jaune = gris dans le jeu),
+  // que l'add-on ne sait de toute façon pas utiliser.
+  if (recipeID === null || !knownRecipes.has(recipeID)) {
+    return { reason: "recette absente des données de l'add-on (inconnue ou sans plage de progression)" };
+  }
   const level = intOrNull(levelText, 1, MAX_LEVEL);
   if (level === null) return { reason: "niveau de métier invalide" };
   const cost = costText === "" ? null : intOrNull(costText, 0, MAX_ID * 100);
