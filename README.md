@@ -23,7 +23,7 @@ Add-on pour **WoW Forever** qui te guide pour monter tes métiers : quelle recet
 
 L'add-on **informe seulement**. Il ne fabrique rien, n'achète rien et ne déplace pas ton personnage.
 
-- Version de l'add-on : 1.0.0-beta9 (auteur : Ryugan, licence MIT)
+- Version de l'add-on : 1.0.0-beta10 (auteur : Ryugan, licence MIT)
 - Version du jeu visée : WoW Forever 1.60.1 (build 70862), numéro d'interface `16001`
 
 ## Installation

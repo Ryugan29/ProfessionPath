@@ -649,5 +649,92 @@ test("detail : des recettes qui se renvoient l'une a l'autre ne bouclent pas", f
     eq(byItem(detail.materials)[200].qty, 2, "il reste l'objet a reunir, sans boucle infinie")
 end)
 
+-- Objets déjà possédés (sacs + banque) : ownedOf(itemID) -> nombre.
+local function owned(map) return function(itemID) return map[itemID] end end
+
+test("detail : un objet a fabriquer deja possede en entier n'est pas decompose", function()
+    local sources = { [200] = { { reagents = { { 100, 1 }, { 101, 1 } }, yield = 1 } } }
+    local _, sourceOf = P.NewPricer(prices({ [100] = 40, [101] = 5 }), sources)
+    local materials = { { itemID = 200, qty = 29 }, { itemID = 100, qty = 5 } }
+    local detail = P.ExpandMaterials(materials, sourceOf, owned({ [200] = 40 }))
+    local raw = byItem(detail.materials)
+    eq(raw[200].qty, 29, "l'objet possede reste dans la liste, a sa quantite necessaire")
+    eq(raw[100].qty, 5, "pas de materiaux pour le fabriquer")
+    eq(raw[101], nil)
+    eq(#detail.prepare, 0, "rien a preparer")
+end)
+
+test("detail : seule la partie manquante d'un objet possede est fabriquee", function()
+    local sources = { [200] = { { reagents = { { 100, 1 }, { 101, 1 } }, yield = 1 } } }
+    local _, sourceOf = P.NewPricer(prices({ [100] = 40, [101] = 5 }), sources)
+    local materials = { { itemID = 200, qty = 29 }, { itemID = 100, qty = 5 } }
+    local detail = P.ExpandMaterials(materials, sourceOf, owned({ [200] = 12 }))
+    local raw, prepare = byItem(detail.materials), byItem(detail.prepare)
+    eq(raw[200].qty, 12, "les 12 possedes restent a reunir (deja dans les sacs)")
+    eq(prepare[200].qty, 17, "17 a fabriquer")
+    eq(prepare[200].crafts, 17)
+    eq(raw[100].qty, 22, "5 directs + 17 pour la fabrication")
+    eq(raw[101].qty, 17)
+end)
+
+test("detail : un objet possede est aussi deduit plus bas dans la chaine", function()
+    local sources = {
+        [200] = { { reagents = { { 100, 2 } }, yield = 1 } },
+        [300] = { { reagents = { { 200, 1 }, { 101, 1 } }, yield = 1 } },
+    }
+    local _, sourceOf = P.NewPricer(prices({ [100] = 40, [101] = 5 }), sources)
+    local detail = P.ExpandMaterials({ { itemID = 300, qty = 4 } }, sourceOf, owned({ [200] = 3 }))
+    local raw, prepare = byItem(detail.materials), byItem(detail.prepare)
+    eq(prepare[300].qty, 4)
+    eq(raw[200].qty, 3, "les 3 intermediaires possedes servent")
+    eq(prepare[200].qty, 1, "un seul intermediaire a fabriquer")
+    eq(raw[100].qty, 2)
+    eq(raw[101].qty, 4)
+end)
+
+test("detail : le stock possede n'est compte qu'une fois", function()
+    local sources = {
+        [200] = { { reagents = { { 100, 2 } }, yield = 1 } },
+        [300] = { { reagents = { { 200, 1 } }, yield = 1 } },
+    }
+    local _, sourceOf = P.NewPricer(prices({ [100] = 40 }), sources)
+    -- 5 objets 200 demandes directement + 4 via 300 ; on en possede 6.
+    local detail = P.ExpandMaterials({ { itemID = 200, qty = 5 }, { itemID = 300, qty = 4 } }, sourceOf,
+        owned({ [200] = 6 }))
+    local raw, prepare = byItem(detail.materials), byItem(detail.prepare)
+    eq(raw[200].qty, 6, "les 6 possedes, pas plus")
+    eq(prepare[200].qty, 3, "5 + 4 - 6 = 3 a fabriquer")
+    eq(raw[100].qty, 6)
+end)
+
+test("detail : fabrication par lots, seule la partie manquante compte", function()
+    local sources = { [200] = { { reagents = { { 100, 2 } }, yield = 5 } } }
+    local _, sourceOf = P.NewPricer(prices({ [100] = 40 }), sources)
+    local detail = P.ExpandMaterials({ { itemID = 200, qty = 12 } }, sourceOf, owned({ [200] = 4 }))
+    eq(byItem(detail.prepare)[200].crafts, 2, "8 manquants a 5 par fabrication")
+    eq(byItem(detail.materials)[100].qty, 4)
+    eq(byItem(detail.materials)[200].qty, 4)
+end)
+
+test("detail : une quantite nulle ne donne ni ligne ni fabrication", function()
+    local sources = { [200] = { { reagents = { { 100, 1 } }, yield = 1 } } }
+    local _, sourceOf = P.NewPricer(prices({ [100] = 40 }), sources)
+    local detail = P.ExpandMaterials({ { itemID = 200, qty = 0 }, { itemID = 100, qty = 0 } }, sourceOf)
+    eq(#detail.materials, 0)
+    eq(#detail.prepare, 0)
+end)
+
+test("detail : un stock illisible compte pour zero", function()
+    local sources = { [200] = { { reagents = { { 100, 1 } }, yield = 1 } } }
+    local _, sourceOf = P.NewPricer(prices({ [100] = 40 }), sources)
+    for _, value in ipairs({ -3, 0, "x", 1.5 }) do
+        local detail = P.ExpandMaterials({ { itemID = 200, qty = 4 } }, sourceOf, function() return value end)
+        local expected = value == 1.5 and 3 or 4
+        eq(byItem(detail.prepare)[200].qty, expected, "stock " .. tostring(value))
+    end
+    local broken = P.ExpandMaterials({ { itemID = 200, qty = 4 } }, sourceOf, function() error("boom") end)
+    eq(byItem(broken.prepare)[200].qty, 4, "une erreur de lecture du stock ne casse pas le calcul")
+end)
+
 print(string.format("%d tests reussis, %d en echec", passed, failed))
 return failed

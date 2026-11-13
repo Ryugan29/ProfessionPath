@@ -512,17 +512,43 @@ end
 -- Renvoie { materials = ce qu'il faut réellement réunir, prepare = objets à fabriquer d'abord,
 -- chacun { itemID, qty = objets nécessaires, crafts = nombre de fabrications, reagents et yield =
 -- matériaux et objets obtenus pour UNE fabrication } }.
+-- ownedOf(itemID), facultatif : nombre d'objets que le joueur possède déjà (sacs + banque). Un objet
+-- à fabriquer déjà possédé reste dans les matériaux à réunir pour la part possédée ; seule la part
+-- manquante est fabriquée. Le stock n'est compté qu'une fois, même si l'objet sert à plusieurs niveaux.
 -- Ne modifie pas la liste reçue. Sans sourceOf, la liste est rendue telle quelle.
-function Planner.ExpandMaterials(materials, sourceOf)
+function Planner.ExpandMaterials(materials, sourceOf, ownedOf)
     local pending, raw, prepare = {}, {}, {}
+    local stock = {} -- [objet] = possédés encore disponibles
+
+    local function Stock(itemID)
+        if stock[itemID] == nil then
+            local ok, count = false, nil
+            if type(ownedOf) == "function" then ok, count = pcall(ownedOf, itemID) end
+            count = ok and type(count) == "number" and math.floor(count) or 0
+            stock[itemID] = count > 0 and count or 0
+        end
+        return stock[itemID]
+    end
+
     for _, material in ipairs(materials or {}) do
         pending[material.itemID] = (pending[material.itemID] or 0) + material.qty
     end
     for _ = 1, MAX_CRAFT_DEPTH + 1 do
         local nextPending, expanded = {}, false
-        for itemID, qty in pairs(pending) do
+        for itemID, needed in pairs(pending) do
             local source = type(sourceOf) == "function" and sourceOf(itemID) or nil
+            local qty = needed
             if IsUsableSource(source) then
+                local fromStock = math.min(Stock(itemID), needed)
+                if fromStock > 0 then
+                    stock[itemID] = stock[itemID] - fromStock
+                    raw[itemID] = (raw[itemID] or 0) + fromStock
+                    qty = needed - fromStock
+                end
+            end
+            if qty <= 0 then
+                -- Tout est déjà possédé : rien à fabriquer.
+            elseif IsUsableSource(source) then
                 local crafts = math.ceil(qty / source.yield)
                 -- La recette retenue accompagne l'objet, pour pouvoir dire avec quoi il se fabrique.
                 local entry = prepare[itemID]

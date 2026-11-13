@@ -193,11 +193,13 @@ C_TradeSkillUI = {
 
 -- Objets dont le jeu n'a pas encore le nom (il faut le demander au serveur).
 local unloadedItems = { [504] = true }
+-- Stock possédé, modifiable par un scénario : { [objet] = { sacs, sacs + banque } }.
+local ownedItems = { [501] = { 25, 40 } } -- 501 : 25 dans les sacs et 15 en banque
 C_Item = {
-    -- 501 : 25 dans les sacs et 15 en banque. Les autres objets : aucun.
     GetItemCount = function(itemID, includeBank)
-        if itemID ~= 501 then return 0 end
-        return includeBank and 40 or 25
+        local counts = ownedItems[itemID]
+        if not counts then return 0 end
+        return includeBank and counts[2] or counts[1]
     end,
     GetItemNameByID = function(itemID) return not unloadedItems[itemID] and ("Objet " .. itemID) or nil end,
     GetItemIconByID = function(itemID) return itemID end,
@@ -678,6 +680,9 @@ scenario("objets a preparer soi-meme : detailles dans la liste, annonces dans le
     assert(select(2, PrepareRows()) == 0, "rien a preparer au depart")
 
     -- 9003 (connue) fabrique 501 avec 1 x 503 ; 503 coute 1, 501 coute 100 chez le marchand.
+    -- D'abord sans aucun 501 dans les sacs : tout est à fabriquer.
+    local savedStock = ownedItems[501]
+    ownedItems[501] = nil
     ns.Crafts[9003] = { 501, 1 }
     ns.db.vendor[503] = 1
     ns.RefreshUI()
@@ -693,6 +698,25 @@ scenario("objets a preparer soi-meme : detailles dans la liste, annonces dans le
     prepareRows[501].scripts.OnEnter(prepareRows[501])
     prepareRows[501].scripts.OnLeave(prepareRows[501])
     HoverAll()
+    local needed = prepareRows[501].entry.qty
+    assert(needed >= 2, "le parcours d'essai devrait demander au moins 2 objets 501")
+
+    -- Une partie déjà possédée : seule la part manquante est à fabriquer.
+    ownedItems[501] = { 1, 1 }
+    ns.RefreshUI()
+    Advance(1)
+    local partRows = PrepareRows()
+    assert(partRows[501] and partRows[501].entry.qty == needed - 1, "seule la part manquante doit etre a fabriquer")
+    assert(MaterialRows()[501], "le 501 possede doit rester dans la liste")
+
+    -- Tout est déjà possédé : rien à fabriquer, 501 reste dans la liste (déjà réuni).
+    ownedItems[501] = { needed, needed }
+    ns.RefreshUI()
+    Advance(1)
+    assert(select(2, PrepareRows()) == 0, "tout est possede : rien a preparer")
+    assert(MaterialRows()[501], "501 possede : il reste dans la liste")
+    assert(not MaterialRows()[503], "pas de materiaux pour un objet deja possede")
+    ownedItems[501] = nil
 
     -- Si l'acheter devient moins cher que le fabriquer, tout revient comme avant.
     ns.db.vendor[503] = 500
@@ -701,6 +725,7 @@ scenario("objets a preparer soi-meme : detailles dans la liste, annonces dans le
     assert(MaterialRows()[501], "501 moins cher a l'achat : il doit revenir dans la liste")
     assert(select(2, PrepareRows()) == 0, "plus rien a preparer")
     ns.Crafts[9003], ns.db.vendor[503] = nil, nil
+    ownedItems[501] = savedStock
 end)
 
 scenario("PNJ du metier : maitre et marchand notes, liste triee, repere sur la carte", function()
@@ -1105,6 +1130,74 @@ scenario("affichage : colonne par defaut, rectangle en deux colonnes, choix memo
     SlashCmdList.PROFESSIONPATH("affichage")
     Advance(1)
     assert(ns.db.layout == "column" and window:GetWidth() == columnWidth, "retour au mode colonne attendu")
+end)
+
+scenario("sacs : un objet ramasse ne relance pas le calcul du parcours", function()
+    OpenWindow()
+    local savedSkipped = ns.Character().skipped
+    ns.Character().skipped = {}
+    -- Un scénario précédent a pu fixer l'objectif au niveau actuel : on revient au maximum.
+    local prof = ns.SelectedProfession()
+    local savedTarget = ns.Character().targets[prof.id]
+    ns.Character().targets[prof.id] = nil
+    ns.RefreshUI()
+    Advance(1)
+    local realPlan, calls = ns.Planner.Plan, 0
+    ns.Planner.Plan = function(...) calls = calls + 1 return realPlan(...) end
+    local ok, err = pcall(function()
+        Fire("BAG_UPDATE_DELAYED")
+        Advance(1)
+        assert(calls == 0, "un changement de sacs ne doit pas recalculer le parcours (" .. calls .. " calculs)")
+
+        -- Le contenu des sacs est quand même relu : un intermédiaire possédé change la liste.
+        local savedStock = ownedItems[501]
+        ns.Crafts[9003] = { 501, 1 }
+        ns.db.vendor[503] = 1
+        ownedItems[501] = nil
+        ns.RefreshUI()
+        Advance(1)
+        calls = 0
+        local function Preparing501()
+            for _, frame in ipairs(allFrames) do
+                if frame.prepareRow and IsVisible(frame) and frame.itemID == 501 then return true end
+            end
+            return false
+        end
+        assert(Preparing501(), "sans stock, 501 est a preparer")
+        ownedItems[501] = { 999, 999 }
+        Fire("BAG_UPDATE_DELAYED")
+        Advance(1)
+        assert(calls == 0, "toujours aucun recalcul du parcours")
+        assert(not Preparing501(), "501 maintenant possede : plus rien a preparer")
+        ownedItems[501] = savedStock
+        ns.Crafts[9003], ns.db.vendor[503] = nil, nil
+
+        -- Tout autre changement recalcule le parcours.
+        ns.RefreshUI()
+        assert(calls == 1, "un rafraichissement complet doit recalculer le parcours")
+
+        -- Objectif changé sans rafraîchissement complet : le parcours gardé n'est plus valable.
+        calls = 0
+        ns.Character().targets[prof.id] = prof.skill + 10
+        Fire("BAG_UPDATE_DELAYED")
+        Advance(1)
+        assert(calls == 1, "objectif change : le parcours doit etre recalcule (" .. calls .. ")")
+        ns.Character().targets[prof.id] = nil
+        ns.RefreshUI()
+
+        -- Prix d'un matériau du parcours changé (marchand, hôtel des ventes) : recalcul.
+        calls = 0
+        local savedPrice = ns.db.vendor[501]
+        ns.db.vendor[501] = 7777
+        Fire("BAG_UPDATE_DELAYED")
+        Advance(1)
+        assert(calls == 1, "prix change : le parcours doit etre recalcule (" .. calls .. ")")
+        ns.db.vendor[501] = savedPrice
+    end)
+    ns.Planner.Plan = realPlan
+    ns.Character().skipped = savedSkipped
+    ns.Character().targets[prof.id] = savedTarget
+    assert(ok, err)
 end)
 
 scenario("evenements : la reponse est preparee avant d'ecouter le jeu", function()

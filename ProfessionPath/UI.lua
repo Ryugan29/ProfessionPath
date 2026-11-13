@@ -920,7 +920,33 @@ local function RenderEmpty()
     w.resetButton:Hide()
 end
 
-function ns.RefreshUI()
+-- Dernier parcours calculé. Le calcul est lourd sur un métier qui a des centaines de recettes :
+-- quand seuls les sacs changent (options.bagsOnly), on le réutilise s'il porte sur la même chose
+-- et si les prix de ses matériaux n'ont pas bougé. Tout autre rafraîchissement le recalcule.
+local cachedPlan = { key = nil, plan = nil, prices = nil }
+
+local function PlanKey(prof, mode, target)
+    return table.concat({ tostring(prof.id), mode, tostring(target), tostring(prof.skill),
+        tostring(prof.recipes), #(prof.recipes or {}), CountSkipped(prof) }, "|")
+end
+
+-- Prix actuels des matériaux du parcours, pour savoir si le parcours calculé est encore à jour
+-- (un scan de l'hôtel des ventes ou un marchand peuvent les changer).
+local function PriceSignature(plan, priceOf)
+    local parts = {}
+    for _, material in ipairs(plan.materials or {}) do
+        parts[#parts + 1] = material.itemID .. "=" .. tostring(priceOf(material.itemID))
+    end
+    return table.concat(parts, ",")
+end
+
+local function CachedPlan(options, key, priceOf)
+    if not (options and options.bagsOnly) or cachedPlan.key ~= key or not cachedPlan.plan then return nil end
+    if PriceSignature(cachedPlan.plan, priceOf) ~= cachedPlan.prices then return nil end
+    return cachedPlan.plan
+end
+
+function ns.RefreshUI(options)
     if not root or not root:IsShown() then return end
     local mode = CurrentMode()
     w.modePill:SetLabel(L.MODE:format(L["MODE_" .. mode]))
@@ -938,14 +964,19 @@ function ns.RefreshUI()
 
     local target = ns.TargetFor(prof)
     local priceOf, sourceOf = ns.NewPricer()
-    local plan = ns.Planner.Plan({
-        skill = prof.skill,
-        target = target,
-        mode = mode,
-        recipes = ns.RecipesForPlanner(prof),
-        skipped = ns.SkippedFor(prof),
-        priceOf = priceOf,
-    })
+    local key = PlanKey(prof, mode, target)
+    local plan = CachedPlan(options, key, priceOf)
+    if not plan then
+        plan = ns.Planner.Plan({
+            skill = prof.skill,
+            target = target,
+            mode = mode,
+            recipes = ns.RecipesForPlanner(prof),
+            skipped = ns.SkippedFor(prof),
+            priceOf = priceOf,
+        })
+        cachedPlan.key, cachedPlan.plan, cachedPlan.prices = key, plan, PriceSignature(plan, priceOf)
+    end
 
     -- On ne rejoue les animations que si le parcours affiché a réellement changé.
     local first = plan.steps[1]
@@ -967,8 +998,9 @@ function ns.RefreshUI()
     RenderVisits(VisitsText(plan, prof))
     RenderNpcs(prof)
     local stepCount = RenderSteps(plan, animate)
-    -- Les objets que le joueur a intérêt à fabriquer lui-même sont remplacés par leurs matériaux.
-    local detail = ns.Planner.ExpandMaterials(plan.materials, sourceOf)
+    -- Les objets que le joueur a intérêt à fabriquer lui-même sont remplacés par leurs matériaux,
+    -- sauf la part qu'il possède déjà (sacs + banque).
+    local detail = ns.Planner.ExpandMaterials(plan.materials, sourceOf, ns.OwnedCount)
     RenderPrepare(detail.prepare)
     RenderMaterials(detail, animate, stepCount)
     RenderCost(ns.Planner.PlanCost(detail.materials, priceOf))

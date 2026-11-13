@@ -19,18 +19,20 @@ Step-by-step profession leveling for WoW Forever: what to craft next, how many, 
 
 ## Description (anglais)
 
-**Profession Path** tells you which recipe to craft next to level your profession, and explains its choice. It reads your real recipes from the game, so the path is built for your character.
+Profession Path tells you which recipe to craft next to level your profession, and explains its choice. It reads your real recipes from the game, so the path is built for your character.
 
 **What it shows**
 
 - **Next recipe**: what to craft now, how many, the chance of a skill point, and the materials for that step.
 - **Full path**: the following steps up to the skill level you are aiming for.
 - **Trainer visits**: when to go back to your trainer and what to learn, grouped to save trips.
+- **Next rank**: as soon as you can learn Journeyman, Expert or Artisan, the window tells you which trainer to visit (closest one of your faction) and the character level you need. For Cooking, First Aid and Fishing, it reminds you that Expert is learned from a book.
+- **Profession NPCs**: every profession trainer of WoW Forever is built in, with its position. A "Map" button places the game map marker with its guiding arrow.
 - **Shopping list**: every material for the whole path, with what you already own (bags and bank shown separately).
 - **To craft yourself first**: materials that are cheaper to craft than to buy (cured hides, bars...), with their own materials added to the shopping list.
 - **Estimated cost** of the whole path.
 - **Favourites**: star a material and it gets a star in your bags and at vendors.
-- **Profession tabs**: one click to switch profession.
+- **Profession tabs**: one click to switch profession. Only the professions your character has are shown.
 
 **Three priorities**
 
@@ -41,18 +43,24 @@ Step-by-step profession leveling for WoW Forever: what to craft next, how many, 
 **How to use it**
 
 1. Open your profession window once so the add-on can read your recipes.
-2. Talk to your profession trainer once, with the "Unavailable" filter ticked, so the add-on learns what they teach. Until then the window shows a "Provisional path" warning.
-3. Type `/ppath`.
+2. Talk to your profession trainer once, with the "Unavailable" filter ticked, so the add-on learns exactly what they teach. Until then the window may show a "Provisional path" warning.
+3. Type `/ppath` (or click the minimap button).
 
 **Information only.** The add-on never crafts, buys, sells or moves anything for you.
 
 **Honest about its data.** Recipe thresholds come from the WoW Forever game files. When something is unknown (a price, a trainer not read yet), the add-on says so instead of guessing. Quantities marked `~` are averages.
+
+**Nothing to share.** All the data ships with the add-on: you have nothing to copy, post or look up.
+
+**Data sources.** Trainer list, positions and rank requirements come from wow-professions.com/forever, used with the author's permission. Thanks to its author!
 
 **Works with** the default bags, Bagnon, AdiBags, Baganator, LiteBag, Baggins, Inventorian, ElvUI and ArkInventory for the favourite star. Only the default bags and Bagnon have been tested in game so far.
 
 **Languages**: English, French.
 
 **Beta**: tested in game on Leatherworking and Blacksmithing. Feedback on other professions is very welcome.
+
+**Bugs and suggestions**: https://github.com/Ryugan29/ProfessionPath/issues — please include a screenshot and the text given by `/ppath diag`.
 
 ## Description (français)
 
@@ -93,6 +101,11 @@ Step-by-step profession leveling for WoW Forever: what to craft next, how many, 
 2. La souris sur une ligne de « À préparer toi-même », infobulle ouverte.
 3. Les sacs ouverts avec quelques étoiles de favoris.
 4. La fenêtre avec le bandeau « Parcours provisoire » (un métier dont le maître n'est pas lu).
+
+## Notes de version (changelog) — 1.0.0-beta10
+
+- Materials you already own are taken into account: if you have some of an item the add-on tells you to craft yourself (bars, cured hides...), only the missing ones go to "To craft yourself first", and the shopping list only asks for the materials of those.
+- Smoother while the window is open: looting or moving items no longer recalculates the whole path, only the shopping list (the path is still recalculated when your skill, target, priority or prices change).
 
 ## Notes de version (changelog) — 1.0.0-beta9
 

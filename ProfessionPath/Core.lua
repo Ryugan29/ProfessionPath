@@ -753,8 +753,10 @@ function handlers.SKILL_LINES_CHANGED()
     if windowOpen then RequestScan() end
 end
 
+-- Seul le contenu des sacs (ou un nom d'objet) a changé : le parcours déjà calculé reste valable,
+-- la fenêtre ne refait que ce qui dépend de ce que le joueur possède.
 function handlers.BAG_UPDATE_DELAYED()
-    Debounce("refresh", REFRESH_DELAY, function() ns.RefreshUI() end)
+    Debounce("refresh", REFRESH_DELAY, function() ns.RefreshUI({ bagsOnly = true }) end)
 end
 -- On n'arrête d'attendre un objet que lorsque son nom est vraiment là : un premier signal peut
 -- arriver trop tôt ou en échec (success = false), et le second ne doit pas être ignoré.
