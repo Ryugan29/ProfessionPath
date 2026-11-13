@@ -45,15 +45,43 @@ local function CharacterKey()
     return (UnitName("player") or "?") .. " - " .. (GetRealmName() or "?")
 end
 
+-- Conversions de la sauvegarde quand sa forme change d'une version de l'add-on à l'autre :
+-- MIGRATIONS[n] transforme une sauvegarde de la version n - 1 en version n. Aucune pour l'instant.
+-- Une conversion ratée est retentée à la connexion suivante : chaque conversion doit donc pouvoir
+-- être rejouée sans dégât, même si elle s'est arrêtée au milieu.
+local MIGRATIONS = {}
+
+-- Applique, dans l'ordre, les conversions qui manquent à « db » pour atteindre « target ».
+-- Une sauvegarde sans numéro vient de la toute première version (1). Une sauvegarde plus récente
+-- que l'add-on (retour à une ancienne version) n'est pas touchée. Si une conversion échoue, on
+-- s'arrête là sans avancer le numéro : rien n'est perdu et l'erreur est visible avec /ppath diag.
+function ns.MigrateDB(db, target, steps)
+    local current = tonumber(db.version)
+    -- Numéro abîmé (texte, nombre à virgule, négatif) : on repart de la toute première version.
+    if not current or current < 1 or current ~= math.floor(current) then current = 1 end
+    db.version = current
+    for version = current + 1, target do
+        local step = steps[version]
+        if step then
+            local ok, err = pcall(step, db)
+            if not ok then
+                ns.migrationError = ("%d -> %d : %s"):format(version - 1, version, tostring(err))
+                return
+            end
+        end
+        db.version = version
+    end
+end
+
 local function InitDB()
-    ProfessionPathDB = ProfessionPathDB or {}
+    if type(ProfessionPathDB) ~= "table" then ProfessionPathDB = {} end
     local db = ProfessionPathDB
-    db.version = db.version or DB_VERSION
+    ns.MigrateDB(db, DB_VERSION, MIGRATIONS)
     db.mode = db.mode or "simple"
-    db.chars = db.chars or {}
+    if type(db.chars) ~= "table" then db.chars = {} end
     -- Recettes des maîtres lues en jeu, communes à tous les personnages :
     -- { [nom du métier] = { [nom de la recette] = { level = niveau requis, cost = prix en cuivre } } }
-    db.trainer = db.trainer or {}
+    if type(db.trainer) ~= "table" then db.trainer = {} end
     -- Composants marqués d'une étoile, communs à tous les personnages : { [identifiant d'objet] = true }
     if type(db.favorites) ~= "table" then db.favorites = {} end
     ns.Favorites.Attach(db.favorites)
@@ -85,18 +113,21 @@ function ns.SortedProfessions()
     return list
 end
 
+-- Seuls les métiers que le personnage possède encore sont affichés (voir ns.CurrentProfessions).
 function ns.SelectedProfession()
     local char = ns.Character()
-    local prof = char.selected and char.profs[char.selected]
-    if prof then return prof end
-    prof = ns.SortedProfessions()[1]
+    local list = ns.CurrentProfessions()
+    for _, prof in ipairs(list) do
+        if prof.id == char.selected then return prof end
+    end
+    local prof = list[1]
     char.selected = prof and prof.id or nil
     return prof
 end
 
 function ns.SelectNextProfession()
     local char = ns.Character()
-    local list = ns.SortedProfessions()
+    local list = ns.CurrentProfessions()
     if #list == 0 then return end
     local nextIndex = 1
     for index, prof in ipairs(list) do
@@ -293,11 +324,20 @@ end
 -- Onglets de métier : un par métier du personnage, dans l'ordre où le jeu les liste.
 -- { id (nil si jamais lu), name, icon, skill, max, read }. Un métier « non lu » est connu du
 -- personnage mais sa fenêtre n'a jamais été ouverte : l'add-on n'a pas ses recettes.
--- Les métiers déjà lus que le jeu ne liste plus sont ajoutés à la fin, pour rester accessibles.
+-- Un métier déjà lu que le jeu ne liste plus (abandonné) n'a pas d'onglet ; il reste dans la
+-- sauvegarde et revient tout seul si le personnage le réapprend. Si le jeu ne donne aucune
+-- liste (fonction absente ou en échec), on montre tous les métiers lus plutôt que rien.
 function ns.ProfessionTabs()
     local char = ns.Character()
     local tabs, matched = {}, {}
-    for _, known in ipairs(PlayerProfessions()) do
+    local listed = PlayerProfessions()
+    if #listed == 0 then
+        for _, prof in ipairs(ns.SortedProfessions()) do
+            tabs[#tabs + 1] = { id = prof.id, name = prof.name, skill = prof.skill, max = prof.max, read = true }
+        end
+        return tabs
+    end
+    for _, known in ipairs(listed) do
         -- Le numéro du métier fait foi ; le nom ne sert que si aucun numéro ne correspond.
         local saved = known.skillLine ~= nil and char.profs[known.skillLine] or nil
         if matched[saved] then saved = nil end
@@ -316,12 +356,18 @@ function ns.ProfessionTabs()
             read = saved ~= nil,
         }
     end
-    for _, prof in ipairs(ns.SortedProfessions()) do
-        if not matched[prof] then
-            tabs[#tabs + 1] = { id = prof.id, name = prof.name, skill = prof.skill, max = prof.max, read = true }
-        end
-    end
     return tabs
+end
+
+-- Métiers lus que le personnage possède encore, triés par nom : ceux qu'on peut afficher.
+function ns.CurrentProfessions()
+    local list = {}
+    for _, tab in ipairs(ns.ProfessionTabs()) do
+        local prof = tab.read and ns.Character().profs[tab.id]
+        if prof then list[#list + 1] = prof end
+    end
+    table.sort(list, function(a, b) return (a.name or "") < (b.name or "") end)
+    return list
 end
 
 -- Affiche directement ce métier. Renvoie false s'il n'a jamais été lu.
@@ -374,6 +420,13 @@ function ns.HasTrainerData(prof)
     return FindTrainerRecipes(prof) ~= nil
 end
 
+-- Niveau d'apprentissage d'une recette du maître. Le jeu répond 0 pour « aucun niveau requis » :
+-- d'anciennes sauvegardes en contiennent. Pour le moteur, 0 voudrait dire « inconnu ».
+local function TaughtLevel(level)
+    if type(level) ~= "number" or level < 1 then return 1 end
+    return level
+end
+
 -- Prépare les recettes pour le moteur, sans modifier celles qui sont sauvegardées.
 function ns.RecipesForPlanner(prof)
     local coloursAreFresh = prof.scanSkill == prof.skill
@@ -392,7 +445,7 @@ function ns.RecipesForPlanner(prof)
         local teachingItem = ns.TeachingItems[saved.id]
         list[#list + 1] = {
             -- Le maître lu en jeu fait foi ; sinon, l'objet qui apprend la recette (données du jeu).
-            learnLevel = taught and taught.level or nil,
+            learnLevel = taught and TaughtLevel(taught.level) or nil,
             learnCost = taught and taught.cost or nil,
             learnSource = taught and "trainer" or (teachingItem and "item" or nil),
             teachingItem = teachingItem,
@@ -493,12 +546,21 @@ end
 
 -- Chaque nom n'est demandé au jeu qu'une fois, pour ne pas redessiner la fenêtre en boucle.
 local requestedItemNames = {}
+-- Objets demandés dont on attend l'arrivée : seuls eux justifient de redessiner la fenêtre.
+-- Les autres add-ons (hôtel des ventes, Auctionator...) en font arriver des centaines.
+local awaitedItems = {}
 
 function ns.ItemName(itemID)
     local name = Try(C_Item.GetItemNameByID, itemID)
     if name then return name end
+    -- L'ancienne fonction du jeu donne le nom s'il est connu, et sinon le demande au serveur :
+    -- elle marche sur tous les clients et prévient avec GET_ITEM_INFO_RECEIVED.
+    name = Try(GetItemInfo, itemID)
+    if name then return name end
     if not requestedItemNames[itemID] then
         requestedItemNames[itemID] = true
+        awaitedItems[itemID] = true
+        -- La fonction récente prévient avec ITEM_DATA_LOAD_RESULT : les deux signaux sont écoutés.
         Try(C_Item.RequestLoadItemDataByID, itemID)
     end
     return L.ITEM_UNKNOWN:format(itemID)
@@ -514,6 +576,7 @@ end
 
 -- Compteurs des signaux reçus du jeu, pour comprendre une lecture qui ne se fait pas.
 local eventCounts = {}
+ns.eventCounts = eventCounts
 
 -- Affiche ce que le jeu répond réellement, à envoyer tel quel en cas de souci.
 local function PrintDebug()
@@ -621,6 +684,8 @@ SlashCmdList.PROFESSIONPATH = function(message)
         ScanOnDemand()
     elseif command == "recettes" or command == "recipes" then
         PrintRecipes()
+    elseif command == "diag" then
+        if ns.ShowDiag then ns.ShowDiag() end
     elseif command == "partager" or command == "share" then
         if ns.ShowShare then ns.ShowShare() end
     elseif command == "affichage" or command == "layout" then
@@ -691,13 +756,19 @@ end
 function handlers.BAG_UPDATE_DELAYED()
     Debounce("refresh", REFRESH_DELAY, function() ns.RefreshUI() end)
 end
-handlers.GET_ITEM_INFO_RECEIVED = handlers.BAG_UPDATE_DELAYED
-
-local eventFrame = CreateFrame("Frame")
-for event in pairs(handlers) do
-    -- Un évènement absent de ce client ne doit pas empêcher l'add-on de se charger.
-    pcall(eventFrame.RegisterEvent, eventFrame, event)
+-- On n'arrête d'attendre un objet que lorsque son nom est vraiment là : un premier signal peut
+-- arriver trop tôt ou en échec (success = false), et le second ne doit pas être ignoré.
+function handlers.GET_ITEM_INFO_RECEIVED(itemID, success)
+    if not awaitedItems[itemID] or success == false then return end
+    if not (Try(C_Item.GetItemNameByID, itemID) or Try(GetItemInfo, itemID)) then return end
+    awaitedItems[itemID] = nil
+    handlers.BAG_UPDATE_DELAYED()
 end
+handlers.ITEM_DATA_LOAD_RESULT = handlers.GET_ITEM_INFO_RECEIVED
+
+-- La réponse est préparée avant d'écouter le jeu (conseil du skill wow-addon-dev : un cadre qui
+-- écoute sans réponse prête peut poser souci pendant le chargement).
+local eventFrame = CreateFrame("Frame")
 eventFrame:SetScript("OnEvent", function(_, event, ...)
     if not ns.db and event ~= "ADDON_LOADED" then return end
     if event:find("SKILL", 1, true) or event == "NEW_RECIPE_LEARNED" then
@@ -706,6 +777,10 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     local handler = handlers[event]
     if handler then handler(...) end
 end)
+for event in pairs(handlers) do
+    -- Un évènement absent de ce client ne doit pas empêcher l'add-on de se charger.
+    pcall(eventFrame.RegisterEvent, eventFrame, event)
+end
 
 -- Remplacées par UI.lua ; définies ici pour que Core fonctionne même si la fenêtre n'existe pas.
 ns.RefreshUI = ns.RefreshUI or function() end

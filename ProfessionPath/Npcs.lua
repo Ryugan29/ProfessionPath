@@ -87,7 +87,16 @@ local function Record(kind, fields)
     local npc = { kind = kind, name = name, map = map, x = x, y = y, faction = Call(UnitFactionGroup, "npc") }
     for key, value in pairs(fields) do npc[key] = value end
     -- Clé « genre:numéro » : un même PNJ peut être à la fois maître et marchand.
-    ns.db.npcs[kind .. ":" .. id] = npc
+    local key = kind .. ":" .. id
+    local previous = ns.db.npcs[key]
+    -- Revu (par exemple par un autre personnage) : on complète la fiche au lieu de la remplacer.
+    if type(previous) == "table" then
+        if type(previous.items) == "table" and type(npc.items) == "table" then
+            for itemID in pairs(previous.items) do npc.items[itemID] = true end
+        end
+        if npc.professionID == nil then npc.professionID = previous.professionID end
+    end
+    ns.db.npcs[key] = npc
     return npc
 end
 

@@ -114,9 +114,9 @@ end
 
 -- À la connexion, tous les add-ons sont chargés : une mini-carte carrée est déjà en place.
 local eventFrame = CreateFrame("Frame")
-pcall(eventFrame.RegisterEvent, eventFrame, "PLAYER_LOGIN")
 eventFrame:SetScript("OnEvent", function()
     if not ns.db then return end
     Place()
     button:SetShown(not Settings().hide)
 end)
+pcall(eventFrame.RegisterEvent, eventFrame, "PLAYER_LOGIN")

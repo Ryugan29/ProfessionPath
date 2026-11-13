@@ -1,14 +1,14 @@
 -- Profession Path — ce que chaque recette fabrique.
 -- FICHIER FABRIQUÉ AUTOMATIQUEMENT par tools/gen_thresholds.js : ne pas le modifier à la main.
 --
--- Source : table du jeu SpellEffect (effet « fabrique un objet »), version 1.60.1.70862, via wago.tools, le 2026-11-10.
+-- Source : table du jeu SpellEffect (effet « fabrique un objet »), version 1.60.1.70938, via wago.tools, le 2026-11-13.
 -- Sert à donner un prix aux objets que le joueur sait fabriquer lui-même (coût de leurs matériaux).
 -- Format : [numéro de la recette] = { numéro de l'objet fabriqué, quantité obtenue par fabrication }
--- 2096 recettes. Écartées : 94 (plusieurs objets fabriqués, ou quantité non entière).
+-- 2071 recettes. Écartées : 94 (plusieurs objets fabriqués, ou quantité non entière).
 
 local _, ns = ...
 
-ns.CraftsBuild = "1.60.1.70862"
+ns.CraftsBuild = "1.60.1.70938"
 
 ns.Crafts = {
     [2149] = { 2302, 1 },
@@ -1401,16 +1401,6 @@ ns.Crafts = {
     [1227723] = { 239147, 1 },
     [1227724] = { 239148, 1 },
     [1228088] = { 237023, 1 },
-    [1229432] = { 279978, 1 },
-    [1229504] = { 279972, 1 },
-    [1229517] = { 279979, 1 },
-    [1229705] = { 279962, 1 },
-    [1230117] = { 279968, 1 },
-    [1230161] = { 279960, 1 },
-    [1230171] = { 279944, 1 },
-    [1230564] = { 279956, 1 },
-    [1230643] = { 279976, 1 },
-    [1230656] = { 279950, 1 },
     [1231583] = { 241650, 1 },
     [1240345] = { 2840, 1 },
     [1244421] = { 246948, 1 },
@@ -1858,24 +1848,9 @@ ns.Crafts = {
     [1259347] = { 255720, 1 },
     [1259348] = { 255721, 1 },
     [1259349] = { 255722, 1 },
-    [1262975] = { 279948, 1 },
-    [1262978] = { 279957, 1 },
-    [1262980] = { 279964, 1 },
-    [1262985] = { 279969, 1 },
-    [1262990] = { 279965, 1 },
-    [1262996] = { 279940, 1 },
-    [1263005] = { 279970, 1 },
-    [1263031] = { 279941, 1 },
-    [1263032] = { 279943, 1 },
-    [1263034] = { 279949, 1 },
-    [1263041] = { 279988, 1 },
-    [1263056] = { 279985, 1 },
-    [1263425] = { 279973, 1 },
     [1270632] = { 263507, 1 },
     [1270633] = { 263509, 1 },
     [1270635] = { 263512, 1 },
-    [1283400] = { 279961, 1 },
-    [1291341] = { 279974, 1 },
     [1292920] = { 273884, 1 },
     [1292921] = { 273885, 1 },
     [1292923] = { 273886, 1 },

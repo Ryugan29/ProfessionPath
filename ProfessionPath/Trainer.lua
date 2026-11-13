@@ -38,8 +38,10 @@ local function ReadTrainer()
             if type(skillName) == "string" and skillName ~= "" then profession = skillName end
             services[#services + 1] = {
                 name = name,
-                -- Aucun niveau demandé par le maître : la recette s'apprend dès le niveau 1.
-                level = type(skillLevel) == "number" and skillLevel or NO_REQUIREMENT_LEVEL,
+                -- Aucun niveau demandé par le maître (absent, ou 0 pour le jeu) : la recette
+                -- s'apprend dès le niveau 1.
+                level = (type(skillLevel) == "number" and skillLevel >= NO_REQUIREMENT_LEVEL) and skillLevel
+                    or NO_REQUIREMENT_LEVEL,
                 cost = Call(GetTrainerServiceCost, index),
             }
         end
@@ -95,11 +97,11 @@ local function Schedule(announce)
 end
 
 local eventFrame = CreateFrame("Frame")
--- Un évènement absent de ce client ne doit pas empêcher l'add-on de se charger.
-pcall(eventFrame.RegisterEvent, eventFrame, "TRAINER_SHOW")
-pcall(eventFrame.RegisterEvent, eventFrame, "TRAINER_UPDATE")
 eventFrame:SetScript("OnEvent", function(_, event)
     if event == "TRAINER_SHOW" or event == "TRAINER_UPDATE" then
         Schedule(event == "TRAINER_SHOW")
     end
 end)
+-- Un évènement absent de ce client ne doit pas empêcher l'add-on de se charger.
+pcall(eventFrame.RegisterEvent, eventFrame, "TRAINER_SHOW")
+pcall(eventFrame.RegisterEvent, eventFrame, "TRAINER_UPDATE")

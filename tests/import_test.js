@@ -51,6 +51,22 @@ test("refuse les lignes douteuses en disant pourquoi", () => {
   assert.match(reasons, /niveau/);
 });
 
+test("niveau 0 du maître (aucun niveau requis) : accepté comme niveau 1", () => {
+  const share = parseShare("ProfessionPath-share 1;1.60.1.70888;frFR\nR;164;9001;0;10", KNOWN_RECIPES);
+  assert.deepStrictEqual(share.trainerLevels, { 9001: [1, 10] });
+  assert.strictEqual(share.rejected.length, 0);
+});
+
+test("refuse les codes de mise en forme du jeu (|) dans les noms", () => {
+  const share = parseShare([
+    "ProfessionPath-share 1;1.60.1.70888;frFR",
+    "N;trainer;3355;|cffff0000Faux|r;1453;0.5;0.6;Alliance;164;Forge;",
+    "N;trainer;3356;Maitre;1453;0.5;0.6;Alliance;164;|TInterface\\Icons\\X:0|t;",
+  ].join("\n"), KNOWN_RECIPES);
+  assert.deepStrictEqual(Object.keys(share.npcs), []);
+  assert.strictEqual(share.rejected.length, 2);
+});
+
 test("refuse un texte sans en-tête de partage", () => {
   assert.throws(() => parseShare("N;trainer;1;X;1;0.5;0.5;;164;Forge;", KNOWN_RECIPES), /en-tête/);
 });

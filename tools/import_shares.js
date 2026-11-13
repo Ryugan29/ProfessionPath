@@ -32,9 +32,10 @@ function intOrNull(text, min, max) {
   return value >= min && value <= max ? value : null;
 }
 
-// Un nom lisible : ni vide, ni trop long, ni caractère de contrôle.
+// Un nom lisible : ni vide, ni trop long, ni caractère de contrôle, ni code de mise en forme
+// du jeu (« | » : couleurs |c, images |T...), qui s'afficherait chez tous les joueurs.
 function validText(text) {
-  return Boolean(text) && text.length <= MAX_NAME && !/[\u0000-\u001f]/.test(text);
+  return Boolean(text) && text.length <= MAX_NAME && !/[\u0000-\u001f|]/.test(text);
 }
 
 function parseNpc(fields) {
@@ -76,8 +77,10 @@ function parseRecipe(fields, knownRecipes) {
   if (recipeID === null || !knownRecipes.has(recipeID)) {
     return { reason: "recette absente des données de l'add-on (inconnue ou sans plage de progression)" };
   }
-  const level = intOrNull(levelText, 1, MAX_LEVEL);
-  if (level === null) return { reason: "niveau de métier invalide" };
+  // Le jeu répond 0 pour « aucun niveau requis » : c'est le niveau 1.
+  const rawLevel = intOrNull(levelText, 0, MAX_LEVEL);
+  if (rawLevel === null) return { reason: "niveau de métier invalide" };
+  const level = Math.max(1, rawLevel);
   const cost = costText === "" ? null : intOrNull(costText, 0, MAX_ID * 100);
   if (costText !== "" && cost === null) return { reason: "prix invalide" };
   return { recipeID, value: [level, cost] };

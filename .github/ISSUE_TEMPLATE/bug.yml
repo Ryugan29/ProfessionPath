@@ -1,0 +1,41 @@
+name: Report a bug / Signaler un bug
+description: Something does not work as expected. / Quelque chose ne marche pas comme prévu.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **EN** — Thank you! In game, type `/ppath diag`, press Ctrl+A then Ctrl+C in the window, and paste the text below. It contains the add-on and game versions and what the add-on has read. It contains no character or realm name.
+
+        **FR** — Merci ! En jeu, tape `/mpp diag`, fais Ctrl+A puis Ctrl+C dans la fenêtre, et colle le texte ci-dessous. Il contient les versions de l'add-on et du jeu et ce que l'add-on a lu. Il ne contient ni nom de personnage ni royaume.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened? / Que s'est-il passé ?
+      description: What you did, what you expected, what you saw instead. / Ce que tu as fait, ce que tu attendais, ce que tu as vu à la place.
+    validations:
+      required: true
+  - type: textarea
+    id: diag
+    attributes:
+      label: Diagnostic text / Texte du diagnostic
+      description: Starts with "ProfessionPath-diag 1" / Commence par « ProfessionPath-diag 1 »
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Lua error (optional) / Erreur Lua (facultatif)
+      description: If the game showed an error (or BugSack caught one), paste it here. / Si le jeu a affiché une erreur (ou si BugSack l'a attrapée), colle-la ici.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot (optional) / Capture d'écran (facultatif)
+      description: Drag an image here. / Glisse une image ici.
+    validations:
+      required: false

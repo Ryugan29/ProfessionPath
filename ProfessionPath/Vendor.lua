@@ -76,17 +76,15 @@ local function ReadMerchant()
     local seen, changed = 0, 0
     for itemID, price in pairs(MerchantPrices()) do
         local saved = ns.db.vendor[itemID]
+        -- Un marchand qui ne vend l'objet qu'en stock limité ou contre une monnaie spéciale ne
+        -- touche pas au prix appris chez un autre. On garde le prix le plus bas vu en jeu.
         if price then
             seen = seen + 1
-            if not SamePrice(saved, price) then
+            local lower = type(saved) ~= "number" or (price < saved and not SamePrice(saved, price))
+            if lower then
                 ns.db.vendor[itemID] = price
                 changed = changed + 1
             end
-        elseif saved ~= nil then
-            -- Ce marchand ne vend plus l'objet en stock illimité contre de l'argent : l'ancien
-            -- prix n'est plus fiable, on l'oublie plutôt que de le garder indéfiniment.
-            ns.db.vendor[itemID] = nil
-            changed = changed + 1
         end
     end
     return seen, changed
@@ -110,9 +108,9 @@ local function Schedule()
 end
 
 local eventFrame = CreateFrame("Frame")
--- Un évènement absent de ce client ne doit pas empêcher l'add-on de se charger.
-pcall(eventFrame.RegisterEvent, eventFrame, "MERCHANT_SHOW")
-pcall(eventFrame.RegisterEvent, eventFrame, "MERCHANT_UPDATE")
 eventFrame:SetScript("OnEvent", function(_, event)
     if event == "MERCHANT_SHOW" or event == "MERCHANT_UPDATE" then Schedule() end
 end)
+-- Un évènement absent de ce client ne doit pas empêcher l'add-on de se charger.
+pcall(eventFrame.RegisterEvent, eventFrame, "MERCHANT_SHOW")
+pcall(eventFrame.RegisterEvent, eventFrame, "MERCHANT_UPDATE")

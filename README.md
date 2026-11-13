@@ -6,7 +6,7 @@
 
 - **Install**: copy the `ProfessionPath` folder into `World of Warcraft\_forever_\Interface\AddOns\`, or install it from CurseForge.
 - **Use**: open your profession window once, talk to your profession trainer once (with the "Unavailable" filter ticked), then type `/ppath`.
-- **Bugs and suggestions**: open an issue on this repository, with a screenshot and the output of `/ppath debug`.
+- **Bugs and suggestions**: open an issue on this repository ("Report a bug" form), with a screenshot and the text from `/ppath diag`.
 - **Status**: public beta, tested in game on Leatherworking and Blacksmithing.
 - **Licence**: MIT (see `LICENSE`). Author: Ryugan.
 
@@ -22,7 +22,7 @@ Add-on pour **WoW Forever** qui te guide pour monter tes métiers : quelle recet
 
 L'add-on **informe seulement**. Il ne fabrique rien, n'achète rien et ne déplace pas ton personnage.
 
-- Version de l'add-on : 1.0.0-beta1 (auteur : Ryugan, licence MIT)
+- Version de l'add-on : 1.0.0-beta8 (auteur : Ryugan, licence MIT)
 - Version du jeu visée : WoW Forever 1.60.1 (build 70862), numéro d'interface `16001`
 
 ## Installation
@@ -58,7 +58,7 @@ La section **PNJ du métier** montre ton maître et les marchands de fournitures
 
 `/mpp partager` ouvre un texte à copier avec les maîtres, marchands et recettes de maître que tu as trouvés : colle-le dans une issue GitHub (modèle « Share trainers and vendors ») pour qu'ils soient ajoutés à l'add-on pour tout le monde. Les contributions sont vérifiées par `node tools/import_shares.js <fichiers>`.
 
-Autres commandes : `/mpp lire` (relit le métier ouvert), `/mpp recettes` (liste les numéros de tes recettes), `/mpp debug` (état technique), `/mpp aide`.
+Autres commandes : `/mpp lire` (relit le métier ouvert), `/mpp recettes` (liste les numéros de tes recettes), `/mpp diag` (texte à coller dans un signalement de bug, formulaire « Report a bug » sur GitHub), `/mpp debug` (état technique), `/mpp aide`.
 
 ## Comment les recommandations sont calculées
 

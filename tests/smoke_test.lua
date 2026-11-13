@@ -25,6 +25,11 @@ end
 
 local widgetMethods = {}
 function widgetMethods:SetScript(name, fn) self.scripts[name] = fn end
+-- Le skill wow-addon-dev demande de préparer la réponse (OnEvent) AVANT d'écouter un évènement.
+local eventsRegisteredWithoutHandler = {}
+function widgetMethods:RegisterEvent(event)
+    if not self.scripts.OnEvent then eventsRegisteredWithoutHandler[#eventsRegisteredWithoutHandler + 1] = event end
+end
 function widgetMethods:GetScript(name) return self.scripts[name] end
 function widgetMethods:Show()
     local wasShown = self.shown
@@ -132,6 +137,9 @@ UiMapPoint = { CreateFromCoordinates = function(map, x, y) return { uiMapID = ma
 C_SuperTrack = { SetSuperTrackedUserWaypoint = function(on) pinned.tracked = on end }
 function GetRealmName() return "Royaume" end
 function GetBuildInfo() return "1.60.1", "70862", "", 16001 end
+C_AddOns = { GetAddOnMetadata = function(addon, field)
+    if addon == "ProfessionPath" and field == "Version" then return "9.9.9-test" end
+end }
 function GetProfessions() return 5, nil, nil, nil, 7 end
 function GetProfessionInfo(index)
     if index == 5 then return "Forge", 1001, 76, 150, 0, 0, 164 end
@@ -180,16 +188,25 @@ C_TradeSkillUI = {
     IsTradeSkillGuild = function() return false end,
 }
 
+-- Objets dont le jeu n'a pas encore le nom (il faut le demander au serveur).
+local unloadedItems = { [504] = true }
 C_Item = {
     -- 501 : 25 dans les sacs et 15 en banque. Les autres objets : aucun.
     GetItemCount = function(itemID, includeBank)
         if itemID ~= 501 then return 0 end
         return includeBank and 40 or 25
     end,
-    GetItemNameByID = function(itemID) return itemID ~= 504 and ("Objet " .. itemID) or nil end,
+    GetItemNameByID = function(itemID) return not unloadedItems[itemID] and ("Objet " .. itemID) or nil end,
     GetItemIconByID = function(itemID) return itemID end,
     RequestLoadItemDataByID = function() end,
 }
+-- Ancienne fonction du jeu : demande l'objet au serveur s'il n'est pas encore connu.
+local askedItemInfo = {}
+function GetItemInfo(itemID)
+    askedItemInfo[itemID] = true
+    if unloadedItems[itemID] then return nil end
+    return "Objet " .. itemID
+end
 
 -- Faux sacs : ceux du jeu, et trois add-ons de sacs (Bagnon, AdiBags, Baganator) -------
 
@@ -371,7 +388,7 @@ scenario("tous les textes utilises par la fenetre existent", function()
         "TITLE", "DONE", "RESET", "TARGET", "NEXT_HEADER", "STEPS_HEADER", "MATERIALS_HEADER", "NO_PROFESSION",
         "FAV_ADD", "FAV_REMOVE", "FAV_TIP", "FAV_WIDGET", "FAV_NONE_IN_BAGS", "OWNED_BANK", "DEBUG_FAVORITES",
         "HERO_MATERIALS", "PER_CRAFT", "STEP_MATERIALS",
-        "TAB_LEVEL", "TAB_UNREAD", "MINIMAP_TIP_CLICK", "MINIMAP_TIP_DRAG", "MINIMAP_TIP_HIDE", "MINIMAP_HIDDEN", "MINIMAP_SHOWN", "NPC_HEADER", "NPC_TRAINER", "NPC_VENDOR", "NPC_MAP_BUTTON", "NPC_MAP_TIP", "NPC_PIN_DONE", "NPC_PIN_FAILED", "NPC_NONE", "VISIT_PIN", "DEBUG_NPCS", "SHARE_TITLE", "SHARE_HELP", "SHARE_STATS", "SHARE_EMPTY", "SHARE_CLOSE", "WARN_TRAINER_SHIPPED", "RESIZE_TITLE", "RESIZE_TIP", "LAYOUT_COLUMN", "LAYOUT_WIDE", "LAYOUT_TIP", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
+        "TAB_LEVEL", "TAB_UNREAD", "MINIMAP_TIP_CLICK", "MINIMAP_TIP_DRAG", "MINIMAP_TIP_HIDE", "MINIMAP_HIDDEN", "MINIMAP_SHOWN", "NPC_HEADER", "NPC_TRAINER", "NPC_VENDOR", "NPC_MAP_BUTTON", "NPC_MAP_TIP", "NPC_PIN_DONE", "NPC_PIN_FAILED", "NPC_NONE", "VISIT_PIN", "DEBUG_NPCS", "SHARE_TITLE", "SHARE_HELP", "SHARE_STATS", "SHARE_EMPTY", "SHARE_CLOSE", "DIAG_TITLE", "DIAG_HELP", "DIAG_STATS", "WARN_TRAINER_SHIPPED", "RESIZE_TITLE", "RESIZE_TIP", "LAYOUT_COLUMN", "LAYOUT_WIDE", "LAYOUT_TIP", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
         assert(type(ns.L[key]) == "string", "texte manquant : " .. key)
     end
 end)
@@ -572,14 +589,21 @@ scenario("prix des marchands : lus a l'ouverture, a l'unite, sans les stocks lim
     assert(#printed == 1, "pas de nouvelle annonce quand rien ne change")
     merchantGoods[4], merchantOffers[4] = nil, nil
 
-    -- Le marchand ne vend plus 502 qu en stock limite : son ancien prix est oublie.
+    -- Un marchand qui ne vend 502 qu'en stock limite n'efface pas le prix appris ailleurs.
     merchantOffers[1].numAvailable = 3
     Fire("MERCHANT_UPDATE")
-    assert(ns.VendorPrice(502) == nil, "un prix devenu peu fiable doit etre oublie")
+    assert(ns.VendorPrice(502) == 100, "un prix appris chez un autre marchand ne doit pas etre efface")
     assert(ns.VendorPrice(501) == 100, "501 garde son prix : une de ses lignes reste en stock illimite")
     merchantOffers[1].numAvailable = -1
+    -- Un marchand plus cher ne remplace pas le prix le plus bas connu ; un moins cher, si.
+    merchantOffers[1].price = 150
     Fire("MERCHANT_UPDATE")
-    assert(ns.VendorPrice(502) == 100, "prix de 502 non relu")
+    assert(ns.VendorPrice(502) == 100, "un marchand plus cher ne doit pas remplacer le prix le plus bas")
+    merchantOffers[1].price = 80
+    Fire("MERCHANT_UPDATE")
+    assert(ns.VendorPrice(502) == 80, "un marchand moins cher doit donner le nouveau prix")
+    merchantOffers[1].price = 100
+    ns.db.vendor[502] = 100
     -- Une sauvegarde abimee ne masque pas le prix livre avec l add-on.
     ns.db.vendor[507], ns.VendorPrices[507] = "abime", 3
     assert(ns.VendorPrice(507) == 3, "prix livre masque par une sauvegarde abimee")
@@ -902,6 +926,28 @@ scenario("onglets de metier : un par metier du personnage, clic direct, non lu e
 
     tabs.Forge.scripts.OnClick(tabs.Forge)
     openProfession = { professionID = 164, professionName = "Forge", skillLevel = 76, maxSkillLevel = 150 }
+
+    -- Un metier lu autrefois puis abandonne (le jeu ne le liste plus) : ni onglet, ni bouton.
+    local char = ns.Character()
+    char.profs[171] = { id = 171, name = "Alchimie", skill = 1, max = 75, recipes = {} }
+    list = ns.ProfessionTabs()
+    assert(#list == 2, "le metier abandonne ne doit pas avoir d'onglet, obtenu " .. #list)
+    for _, tab in ipairs(list) do assert(tab.name ~= "Alchimie", "onglet du metier abandonne") end
+    for _ = 1, 4 do
+        ns.SelectNextProfession()
+        assert(ns.SelectedProfession().id ~= 171, "le bouton Metier ne doit pas passer par le metier abandonne")
+    end
+    char.selected = 171
+    assert(ns.SelectedProfession().id ~= 171, "un metier abandonne ne doit pas rester affiche")
+    assert(char.profs[171], "le metier abandonne reste dans la sauvegarde")
+    -- Si le jeu ne repond pas sur la liste des metiers, on garde tout ce qui a ete lu.
+    local realGetProfessions = GetProfessions
+    GetProfessions = function() end
+    local fallback = ns.ProfessionTabs()
+    GetProfessions = realGetProfessions
+    assert(#fallback == 3, "sans reponse du jeu, tous les metiers lus doivent rester, obtenu " .. #fallback)
+    char.profs[171] = nil
+    tabs.Forge.scripts.OnClick(tabs.Forge)
 end)
 
 scenario("bouton de mini-carte : position, clic, deplacement, masquage", function()
@@ -1047,6 +1093,154 @@ scenario("affichage : colonne par defaut, rectangle en deux colonnes, choix memo
     SlashCmdList.PROFESSIONPATH("affichage")
     Advance(1)
     assert(ns.db.layout == "column" and window:GetWidth() == columnWidth, "retour au mode colonne attendu")
+end)
+
+scenario("evenements : la reponse est preparee avant d'ecouter le jeu", function()
+    assert(#eventsRegisteredWithoutHandler == 0,
+        "evenements ecoutes sans reponse prete : " .. table.concat(eventsRegisteredWithoutHandler, ", "))
+end)
+
+scenario("sauvegarde : numero de version et conversion des anciennes donnees", function()
+    assert(type(ns.db.version) == "number", "la sauvegarde doit porter un numero de version")
+    local steps = { [2] = function(db) db.converted = true end, [3] = function(db) db.third = true end }
+    -- Ancienne sauvegarde (version 1) : chaque etape manquante est appliquee, dans l'ordre.
+    local old = { version = 1 }
+    ns.MigrateDB(old, 3, steps)
+    assert(old.converted and old.third and old.version == 3, "conversion 1 -> 3 incomplete")
+    -- Sauvegarde sans numero (toute premiere version) : traitee comme la version 1.
+    local none = {}
+    ns.MigrateDB(none, 2, steps)
+    assert(none.converted and none.version == 2, "une sauvegarde sans numero doit etre convertie")
+    -- Sauvegarde d'une version plus recente de l'add-on : on n'y touche pas, on ne baisse pas le numero.
+    local newer = { version = 5, favorites = { [1] = true } }
+    ns.MigrateDB(newer, 3, steps)
+    assert(newer.version == 5 and newer.favorites[1] and not newer.converted, "une sauvegarde plus recente ne doit pas etre modifiee")
+    -- Une etape qui plante ne doit pas faire planter l'add-on ni avancer le numero.
+    local broken = { version = 1 }
+    ns.MigrateDB(broken, 2, { [2] = function() error("boom") end })
+    assert(broken.version == 1, "une conversion ratee ne doit pas avancer le numero")
+    ns.migrationError = nil
+    -- Numero abime (nombre a virgule, negatif, texte) : traite comme la version 1.
+    for _, bad in ipairs({ 1.5, -3, "abc" }) do
+        local damaged = { version = bad }
+        ns.MigrateDB(damaged, 2, steps)
+        assert(damaged.version == 2 and damaged.converted, "numero abime mal traite : " .. tostring(bad))
+    end
+end)
+
+scenario("diagnostic : texte a copier pour signaler un bug, sans donnees personnelles", function()
+    local text = ns.BuildDiagText()
+    assert(text:find("ProfessionPath-diag", 1, true), "en-tete du diagnostic absent")
+    assert(text:find("9.9.9-test", 1, true), "version de l'add-on absente :\n" .. text)
+    assert(text:find("1.60.1", 1, true) and text:find("70862", 1, true) and text:find("16001", 1, true), "version du jeu absente")
+    assert(text:find("frFR", 1, true), "langue absente")
+    local savedScale = ns.db.scale
+    ns.db.scale = 0.95777348111205
+    assert(ns.BuildDiagText():find("taille 96 %", 1, true), "la taille doit etre arrondie en pourcentage")
+    ns.db.scale = savedScale
+    assert(text:find("Forge", 1, true), "metiers lus absents :\n" .. text)
+    assert(not text:find("Testeur", 1, true) and not text:find("Royaume", 1, true), "le diagnostic ne doit contenir ni personnage ni royaume")
+    for key in pairs(ns.db.chars) do
+        assert(not text:find(key, 1, true), "le diagnostic contient la cle du personnage : " .. key)
+    end
+    -- Une conversion ratee de la sauvegarde est visible dans le diagnostic.
+    ns.migrationError = "1 -> 2 : test"
+    assert(ns.BuildDiagText():find("conversion ratee 1 -> 2 : test", 1, true), "la conversion ratee doit apparaitre")
+    ns.migrationError = nil
+    -- Sauvegarde incomplete (reglages jamais touches) : le diagnostic marche quand meme.
+    local savedMinimap, savedLayout, savedScale = ns.db.minimap, ns.db.layout, ns.db.scale
+    ns.db.minimap, ns.db.layout, ns.db.scale = nil, nil, nil
+    assert(ns.BuildDiagText():find("affichage column", 1, true), "diagnostic avec reglages par defaut")
+    ns.db.minimap, ns.db.layout, ns.db.scale = savedMinimap, savedLayout, savedScale
+    SlashCmdList.PROFESSIONPATH("diag")
+    assert(ProfessionPathShareFrame and ProfessionPathShareFrame:IsShown(), "fenetre du diagnostic absente")
+    assert(ProfessionPathShareFrame.box:GetText() == text, "la fenetre doit montrer le diagnostic")
+    assert(ProfessionPathShareFrame.help:GetText():find("template=bug.yml", 1, true), "le lien doit mener au formulaire de bug")
+    ProfessionPathShareFrame:Hide()
+    -- Le partage, ouvert ensuite dans la meme fenetre, retrouve ses propres textes.
+    SlashCmdList.PROFESSIONPATH("partager")
+    assert(ProfessionPathShareFrame.help:GetText():find("template=share.yml", 1, true), "le partage doit garder son lien")
+    ProfessionPathShareFrame:Hide()
+end)
+
+scenario("maitre : une recette sans niveau requis (0) reste dans le parcours, au niveau 1", function()
+    trainerServices[#trainerServices + 1] = { name = "Recette de debut", serviceType = "available", skill = "Forge", level = 0, cost = 10 }
+    Fire("TRAINER_SHOW")
+    local early = ns.db.trainer.Forge["Recette de debut"]
+    assert(early and early.level == 1, "niveau 0 du maitre attendu comme 1, lu " .. tostring(early and early.level))
+    trainerServices[#trainerServices] = nil
+    ns.db.trainer.Forge["Recette de debut"] = nil
+    -- Une ancienne sauvegarde qui contient deja un niveau 0 est lue comme niveau 1.
+    local taught = ns.db.trainer.Forge["Recette inconnue"]
+    local savedLevel = taught.level
+    taught.level = 0
+    local found
+    for _, recipe in ipairs(ns.RecipesForPlanner(ns.SelectedProfession())) do
+        if recipe.id == 9004 then found = recipe end
+    end
+    local shared = ns.BuildShareText()
+    taught.level = savedLevel
+    assert(shared:find("\nR;164;9004;1;500", 1, true), "le partage doit dire niveau 1, pas 0 :\n" .. shared)
+    assert(found and found.learnLevel == 1, "niveau 0 sauvegarde attendu comme 1, obtenu " .. tostring(found and found.learnLevel))
+end)
+
+scenario("fiche d'un PNJ revu : completee, pas remplacee", function()
+    -- Le marchand avait ete note avec un objet d'un autre metier (777) : il le garde.
+    local vendor = ns.db.npcs["vendor:4444"]
+    vendor.items[777] = true
+    npcTarget.name, npcTarget.guid = "Marchand Test", "Creature-0-1-2-3-4444-0000CCCC"
+    Fire("MERCHANT_SHOW")
+    vendor = ns.db.npcs["vendor:4444"]
+    assert(vendor.items[777] and vendor.items[501], "les objets deja notes doivent rester avec les nouveaux")
+    vendor.items[777] = nil
+    -- Le numero du metier du maitre ne se perd pas si ce personnage ne le connait pas.
+    npcTarget.name, npcTarget.guid = "Maitre Test", "Creature-0-1-2-3-3355-0000AAAA"
+    local prof = ns.SelectedProfession()
+    local savedName = prof.name
+    prof.name = "Autre metier"
+    Fire("TRAINER_SHOW")
+    prof.name = savedName
+    assert(ns.db.npcs["trainer:3355"].professionID == 164, "le numero du metier du maitre a ete perdu")
+end)
+
+scenario("objets : la fenetre ne se redessine que pour les objets attendus", function()
+    OpenWindow()
+    local realRefresh, refreshes = ns.RefreshUI, 0
+    ns.RefreshUI = function() refreshes = refreshes + 1 end
+    -- Rafale d'objets d'autres add-ons (hotel des ventes) : rien a redessiner.
+    for itemID = 70001, 70050 do Fire("GET_ITEM_INFO_RECEIVED", itemID, true) end
+    assert(refreshes == 0, "redessin inutile pour des objets non demandes : " .. refreshes)
+    -- Un objet demande par l'add-on arrive : un seul redessin.
+    ns.ItemName(504)
+    unloadedItems[504] = nil
+    Fire("GET_ITEM_INFO_RECEIVED", 504, true)
+    unloadedItems[504] = true
+    assert(refreshes == 1, "un redessin attendu pour l'objet demande, obtenu " .. refreshes)
+    Fire("GET_ITEM_INFO_RECEIVED", 504, true)
+    assert(refreshes == 1, "l'objet deja recu ne doit pas redessiner encore")
+    ns.RefreshUI = realRefresh
+end)
+
+scenario("objets : un nom qui arrive tard s'affiche, quel que soit le signal du jeu", function()
+    OpenWindow()
+    unloadedItems[520] = true
+    local realRefresh, refreshes = ns.RefreshUI, 0
+    ns.RefreshUI = function() refreshes = refreshes + 1 end
+    assert(ns.ItemName(520) ~= "Objet 520", "le nom ne devrait pas encore etre connu")
+    -- La demande passe aussi par l'ancienne fonction du jeu, qui marche sur tous les clients.
+    assert(askedItemInfo[520], "le nom doit aussi etre demande avec GetItemInfo")
+    -- Un premier signal trop tot ou en echec : rien a redessiner, mais on continue d'attendre.
+    Fire("ITEM_DATA_LOAD_RESULT", 520, false)
+    Fire("GET_ITEM_INFO_RECEIVED", 520, true)
+    assert(refreshes == 0, "pas de redessin tant que le nom n'est pas la")
+    -- Selon la version du jeu, l'arrivee est signalee par l'un ou l'autre evenement.
+    unloadedItems[520] = nil
+    Fire("ITEM_DATA_LOAD_RESULT", 520, true)
+    assert(refreshes == 1, "la fenetre doit se redessiner quand le nom arrive (ITEM_DATA_LOAD_RESULT)")
+    Fire("GET_ITEM_INFO_RECEIVED", 520, true)
+    assert(refreshes == 1, "le second signal du meme objet ne redessine pas encore")
+    assert(ns.ItemName(520) == "Objet 520", "le nom arrive doit s'afficher")
+    ns.RefreshUI = realRefresh
 end)
 
 scenario("commandes du chat", function()

@@ -3,7 +3,7 @@
 ## Notes: Step-by-step profession leveling guide: what to craft next, how many, with which materials, and why.
 ## Notes-frFR: Guide pas à pas pour monter tes métiers : quoi fabriquer, combien, avec quels matériaux, et pourquoi.
 ## Author: Ryugan
-## Version: 1.0.0-beta6
+## Version: 1.0.0-beta8
 ## X-License: MIT
 ## Category-enUS: Professions
 ## Category-frFR: Métiers
@@ -29,4 +29,5 @@ Theme.lua
 Bags.lua
 UI.lua
 Share.lua
+Diag.lua
 MinimapButton.lua

@@ -11,7 +11,7 @@
 - **Licence** : MIT
 - **Type de fichier** : Beta
 - **Dépendance facultative** : Auctionator
-- **Fichier à envoyer** : `ProfessionPath-1.0.0-beta1.zip`
+- **Fichier à envoyer** : le zip le plus récent, `ProfessionPath-<version>.zip` (un seul gardé dans le dossier du projet)
 
 ## Résumé (une ligne, en anglais)
 
@@ -93,6 +93,23 @@ Step-by-step profession leveling for WoW Forever: what to craft next, how many, 
 2. La souris sur une ligne de « À préparer toi-même », infobulle ouverte.
 3. Les sacs ouverts avec quelques étoiles de favoris.
 4. La fenêtre avec le bandeau « Parcours provisoire » (un métier dont le maître n'est pas lu).
+
+## Notes de version (changelog) — 1.0.0-beta8
+
+Includes 1.0.0-beta7 (diag command, never released on its own).
+
+- Fixed: beginner recipes taught by your trainer (no skill level required) no longer drop out of the path after you talk to the trainer.
+- Fixed: a vendor that sells an item only in limited stock or for tokens no longer erases the price learned at another vendor, and the lowest vendor price is kept.
+- Fixed: talking again to a trainer or vendor (for example with another character) now completes what the add-on knows about them instead of replacing it.
+- Smoother: the window no longer recalculates every time the game loads item information for other add-ons (auction house, Auctionator scans).
+- Profession tabs now show only the professions your character has: a profession you dropped no longer appears (its data is kept and comes back if you learn it again).
+- Material names that the game had not loaded yet ("Item #2841") now appear once the game knows them.
+- Recipe data updated for game build 1.60.1.70938 (for example, Coarse Grinding Stone now gives skill points up to 90).
+
+## Notes de version (changelog) — 1.0.0-beta7
+
+- New /ppath diag command: opens a text to copy and paste in a bug report (add-on and game versions, what the add-on has read). No character or realm name is included. A "Report a bug" form is now available on GitHub.
+- Sturdier start-up and saved data: the add-on now prepares its answers before listening to the game, and its saved data carries a version number so future updates can convert it without losing your favourites or the NPCs you met.
 
 ## Notes de version (changelog) — 1.0.0-beta6
 

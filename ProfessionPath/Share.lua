@@ -60,7 +60,9 @@ local function RecipeLines()
                 local entry = taught[recipe.name]
                 if entry and type(recipe.id) == "number" and not seen[recipe.id] then
                     seen[recipe.id] = true
-                    lines[#lines + 1] = { id = recipe.id, text = Line({ n = 5, "R", prof.id, recipe.id, entry.level, entry.cost }) }
+                    -- D'anciennes sauvegardes notent 0 pour « aucun niveau requis » : c'est le niveau 1.
+                    local level = (type(entry.level) == "number" and entry.level >= 1) and entry.level or 1
+                    lines[#lines + 1] = { id = recipe.id, text = Line({ n = 5, "R", prof.id, recipe.id, level, entry.cost }) }
                 end
             end
         end
@@ -98,16 +100,14 @@ local function Build()
     T.Border(frame, C.border)
     tinsert(UISpecialFrames, "ProfessionPathShareFrame") -- Échap ferme la fenêtre
 
-    local title = T.Text(frame, S.title, C.accent)
-    title:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -PAD)
-    title:SetText(L.SHARE_TITLE)
+    frame.title = T.Text(frame, S.title, C.accent)
+    frame.title:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, -PAD)
 
     frame.help = T.Text(frame, S.small, C.text)
-    frame.help:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
+    frame.help:SetPoint("TOPLEFT", frame.title, "BOTTOMLEFT", 0, -10)
     frame.help:SetWidth(WIDTH - 2 * PAD)
     frame.help:SetWordWrap(true)
     frame.help:SetSpacing(2)
-    frame.help:SetText(L.SHARE_HELP:format(ISSUE_URL))
 
     frame.stats = T.Text(frame, S.small, C.muted)
     frame.stats:SetPoint("TOPLEFT", frame.help, "BOTTOMLEFT", 0, -8)
@@ -138,18 +138,27 @@ local function Build()
     close:SetLabel(L.SHARE_CLOSE)
 end
 
--- /ppath partager : ouvre la fenêtre, texte déjà sélectionné, prêt à copier.
+-- Ouvre la fenêtre « texte à copier », texte déjà sélectionné. Sert au partage et au diagnostic :
+-- { title, help, stats, text }.
+function ns.ShowCopyWindow(content)
+    if not frame then Build() end
+    frame.text = content.text
+    frame.title:SetText(content.title)
+    frame.help:SetText(content.help)
+    frame.stats:SetText(content.stats)
+    frame.box:SetText(content.text)
+    frame:Show()
+    frame.box:SetFocus()
+    frame.box:HighlightText()
+end
+
+-- /ppath partager
 function ns.ShowShare()
     local text, npcs, recipes = ns.BuildShareText()
     if npcs + recipes == 0 then
         ns.Print(L.SHARE_EMPTY)
         return
     end
-    if not frame then Build() end
-    frame.text = text
-    frame.stats:SetText(L.SHARE_STATS:format(npcs, recipes))
-    frame.box:SetText(text)
-    frame:Show()
-    frame.box:SetFocus()
-    frame.box:HighlightText()
+    ns.ShowCopyWindow({ title = L.SHARE_TITLE, help = L.SHARE_HELP:format(ISSUE_URL),
+        stats = L.SHARE_STATS:format(npcs, recipes), text = text })
 end
