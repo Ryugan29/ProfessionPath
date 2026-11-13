@@ -77,4 +77,7 @@ ns.VendorPrices = {
     [18567] = 150000, -- Elemental Flux
     [247786] = 10, -- Mote of Magic
     [272941] = 200000, -- Thick Logs
+    -- Ajoutés le 2026-11-13 (build 1.60.1.70938) depuis une sauvegarde de l'add-on : marchands ouverts en jeu,
+    -- livrés au prix des fichiers du jeu (sans remise de réputation).
+    [2594] = 1500, -- Flagon of Dwarven Honeymead
 }

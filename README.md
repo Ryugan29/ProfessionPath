@@ -8,6 +8,7 @@
 - **Use**: open your profession window once, talk to your profession trainer once (with the "Unavailable" filter ticked), then type `/ppath`.
 - **Bugs and suggestions**: open an issue on this repository ("Report a bug" form), with a screenshot and the text from `/ppath diag`.
 - **Status**: public beta, tested in game on Leatherworking and Blacksmithing.
+- **Data**: recipes from the WoW Forever game files; trainer list, positions and rank requirements from [wow-professions.com/forever](https://www.wow-professions.com/forever); trainer recipe levels and vendor prices recorded in game. Everything ships with the add-on: players have nothing to share or look up.
 - **Licence**: MIT (see `LICENSE`). Author: Ryugan.
 
 ![Main window](branding/screenshots/1-main-window.png)
@@ -22,7 +23,7 @@ Add-on pour **WoW Forever** qui te guide pour monter tes métiers : quelle recet
 
 L'add-on **informe seulement**. Il ne fabrique rien, n'achète rien et ne déplace pas ton personnage.
 
-- Version de l'add-on : 1.0.0-beta8 (auteur : Ryugan, licence MIT)
+- Version de l'add-on : 1.0.0-beta9 (auteur : Ryugan, licence MIT)
 - Version du jeu visée : WoW Forever 1.60.1 (build 70862), numéro d'interface `16001`
 
 ## Installation
@@ -54,9 +55,11 @@ Dans la fenêtre :
 
 Un **bouton sur la mini-carte** ouvre aussi la fenêtre ; glisse-le pour le déplacer, `/mpp minimap` le cache ou le réaffiche.
 
-La section **PNJ du métier** montre ton maître et les marchands de fournitures (ceux de ta zone d'abord) ; le bouton **Carte** pose le repère du jeu sur eux. L'add-on retient leur position quand tu leur parles.
+La section **PNJ du métier** montre les maîtres de ta faction pour ton rang et le suivant, et les marchands de fournitures (ceux de ta zone d'abord) ; le bouton **Carte** pose le repère du jeu sur eux. Tout est livré avec l'add-on : tu n'as rien à chercher ni à partager. L'add-on retient aussi la position des PNJ quand tu leur parles.
 
-`/mpp partager` ouvre un texte à copier avec les maîtres, marchands et recettes de maître que tu as trouvés : colle-le dans une issue GitHub (modèle « Share trainers and vendors ») pour qu'ils soient ajoutés à l'add-on pour tout le monde. Les contributions sont vérifiées par `node tools/import_shares.js <fichiers>`.
+Un bandeau **Rang suivant** te prévient dès que tu peux apprendre Compagnon, Expert ou Artisan, avec le maître à aller voir et le niveau de personnage requis.
+
+**Sources des données livrées** : les recettes viennent des fichiers du jeu WoW Forever ; l'annuaire des maîtres (positions et conditions des rangs) vient de [wow-professions.com/forever](https://www.wow-professions.com/forever) (`node tools/import_trainers.js`) ; les niveaux des recettes chez les maîtres, les marchands et leurs prix sont relevés en jeu (`node tools/share_from_savedvariables.js`, `tools/import_shares.js`, `tools/import_vendor_prices.js`).
 
 Autres commandes : `/mpp lire` (relit le métier ouvert), `/mpp recettes` (liste les numéros de tes recettes), `/mpp diag` (texte à coller dans un signalement de bug, formulaire « Report a bug » sur GitHub), `/mpp debug` (état technique), `/mpp aide`.
 

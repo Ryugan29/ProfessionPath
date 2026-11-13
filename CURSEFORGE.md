@@ -94,6 +94,13 @@ Step-by-step profession leveling for WoW Forever: what to craft next, how many, 
 3. Les sacs ouverts avec quelques étoiles de favoris.
 4. La fenêtre avec le bandeau « Parcours provisoire » (un métier dont le maître n'est pas lu).
 
+## Notes de version (changelog) — 1.0.0-beta9
+
+- New "Next rank" banner: as soon as you can learn Journeyman, Expert or Artisan, the window tells you which trainer to visit (closest one of your faction, with a "Map" button for the arrow) and the character level you need. For Cooking, First Aid and Fishing, it reminds you that Expert is learned from a book.
+- Every profession trainer of WoW Forever is now built in, with its position: the "Profession NPCs" section shows the trainers for your rank and the next one, even if you have never met them.
+- More built-in data: 23 trainers and supply vendors and 82 trainer recipe levels recorded in game (for example, Patterned Bronze Bracers can be learned at 95).
+- Nothing to share anymore: the add-on ships all its data, players have nothing to copy or post.
+
 ## Notes de version (changelog) — 1.0.0-beta8
 
 Includes 1.0.0-beta7 (diag command, never released on its own).

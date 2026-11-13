@@ -32,6 +32,7 @@ local TAB_IDLE_ALPHA, TAB_UNREAD_ALPHA = 0.7, 0.4
 local TOOLTIP_X = TAB_OFFSET + TAB_SIZE + 8 -- les infobulles du jeu s'ouvrent après les onglets
 local WARNING_PAD = 10          -- marge haute et basse du bandeau « parcours provisoire »
 local WARNING_TEXT_TOP = 28      -- le texte du bandeau commence sous son titre
+local RANK_PIN_WIDTH, RANK_PIN_HEIGHT = 70, 20 -- bouton « Carte » du bandeau du rang suivant
 local HERO_TEXT_TOP = 70
 local SLIDE_DISTANCE = 10
 local UNKNOWN_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -623,6 +624,18 @@ local function RenderWarning(prof)
     w.warning:SetShown(show)
 end
 
+-- Bandeau « rang suivant » : affiché dès que le personnage peut apprendre le rang suivant.
+local function RenderRank(prof)
+    local title, body, npc = ns.NextRankText(prof)
+    if title then
+        w.rank.title:SetText(title)
+        w.rank.body:SetText(body)
+    end
+    w.rank.npc = npc
+    w.rank.pin:SetShown(npc ~= nil)
+    w.rank:SetShown(title ~= nil)
+end
+
 -- Coût estimé du parcours, à droite du titre des matériaux. Caché tant qu'aucun prix n'est connu.
 local function RenderCost(cost)
     local money = cost and cost.total > 0 and ns.MoneyText(math.floor(cost.total + 0.5)) or nil
@@ -839,6 +852,9 @@ local function Layout()
     if w.warning:IsShown() then
         Place(w.warning, WARNING_TEXT_TOP + w.warning.body:GetStringHeight() + WARNING_PAD)
     end
+    if w.rank:IsShown() then
+        Place(w.rank, WARNING_TEXT_TOP + w.rank.body:GetStringHeight() + WARNING_PAD)
+    end
 
     local reasonHeight = (w.heroReason:GetText() or "") ~= "" and w.heroReason:GetStringHeight() or 0
     local heroContent = w.heroTextTop + reasonHeight
@@ -893,6 +909,7 @@ local function RenderEmpty()
     RenderTicks({ steps = {} }, 1)
     RenderHero(nil, "simple", L.NO_PROFESSION)
     RenderWarning(nil)
+    RenderRank(nil)
     RenderVisits("")
     RenderNpcs(nil)
     RenderSteps({ steps = {} }, false)
@@ -946,6 +963,7 @@ function ns.RefreshUI()
 
     RenderHero(first, mode, L.NO_STEP)
     RenderWarning(prof)
+    RenderRank(prof)
     RenderVisits(VisitsText(plan, prof))
     RenderNpcs(prof)
     local stepCount = RenderSteps(plan, animate)
@@ -1080,23 +1098,39 @@ local function BuildProgress()
     w.barFill:SetWidth(1)
 end
 
-local function BuildWarning()
-    w.warning = T.Card(root)
-    w.warning.trainerWarning = true
-    w.warning:SetWidth(INNER)
-    w.warning:Hide()
-    local stripe = T.Fill(w.warning, "ARTWORK", C.alert)
+-- Bandeau : une bande de couleur à gauche, un titre et un texte. Caché au départ.
+local function BuildBanner(color)
+    local banner = T.Card(root)
+    banner:SetWidth(INNER)
+    banner:Hide()
+    local stripe = T.Fill(banner, "ARTWORK", color)
     stripe:SetWidth(3)
-    stripe:SetPoint("TOPLEFT", w.warning, "TOPLEFT", 0, 0)
-    stripe:SetPoint("BOTTOMLEFT", w.warning, "BOTTOMLEFT", 0, 0)
-    local title = T.Text(w.warning, S.body, C.alert)
-    title:SetPoint("TOPLEFT", w.warning, "TOPLEFT", 14, -WARNING_PAD)
-    title:SetText(L.WARN_TRAINER_TITLE)
-    w.warning.body = T.Text(w.warning, S.small, C.text)
-    w.warning.body:SetPoint("TOPLEFT", w.warning, "TOPLEFT", 14, -WARNING_TEXT_TOP)
-    w.warning.body:SetWidth(HERO_INNER)
-    w.warning.body:SetWordWrap(true)
-    w.warning.body:SetSpacing(2)
+    stripe:SetPoint("TOPLEFT", banner, "TOPLEFT", 0, 0)
+    stripe:SetPoint("BOTTOMLEFT", banner, "BOTTOMLEFT", 0, 0)
+    banner.title = T.Text(banner, S.body, color)
+    banner.title:SetPoint("TOPLEFT", banner, "TOPLEFT", 14, -WARNING_PAD)
+    banner.body = T.Text(banner, S.small, C.text)
+    banner.body:SetPoint("TOPLEFT", banner, "TOPLEFT", 14, -WARNING_TEXT_TOP)
+    banner.body:SetWidth(HERO_INNER)
+    banner.body:SetWordWrap(true)
+    banner.body:SetSpacing(2)
+    return banner
+end
+
+local function BuildWarning()
+    w.warning = BuildBanner(C.alert)
+    w.warning.trainerWarning = true
+    w.warning.title:SetText(L.WARN_TRAINER_TITLE)
+    -- Rang suivant à apprendre (Compagnon, Expert, Artisan) : voir Ranks.lua.
+    w.rank = BuildBanner(C.success)
+    w.rank.rankBanner = true
+    -- « Carte » : pose la flèche du jeu sur le maître nommé dans le bandeau.
+    w.rank.pin = T.Button(w.rank, RANK_PIN_WIDTH, RANK_PIN_HEIGHT, function()
+        if w.rank.npc then ns.PinNpc(w.rank.npc) end
+    end)
+    w.rank.pin:SetPoint("TOPRIGHT", w.rank, "TOPRIGHT", -WARNING_PAD, -6)
+    w.rank.pin:SetLabel(L.NPC_MAP_BUTTON)
+    w.rank.pin:Hide()
 end
 
 local function BuildHero()

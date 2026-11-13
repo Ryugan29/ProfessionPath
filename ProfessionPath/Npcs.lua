@@ -139,11 +139,59 @@ function ns.RecordVendorNpc()
     return Record("vendor", { items = sold })
 end
 
--- Tous les PNJ connus : ceux livrés avec l'add-on, remplacés par ceux vus par le joueur.
+-- Annuaire des maîtres (Data/Trainers.lua), mis en forme comme les PNJ notés en jeu.
+-- unlocks : maximums de métier que ce maître permet d'atteindre (75 = Apprenti, 150 = Compagnon...).
+local directory
+local function Directory()
+    if directory then return directory end
+    directory = {}
+    for skillLine, trainers in pairs(ns.Trainers or {}) do
+        for index, t in ipairs(trainers) do
+            directory["dir:" .. skillLine .. ":" .. index] = {
+                kind = "trainer", directory = true, name = t.name, map = t.map, x = t.x, y = t.y,
+                faction = t.faction, professionID = skillLine, unlocks = t.unlocks or {},
+            }
+        end
+    end
+    return directory
+end
+
+-- Deux fiches du même maître : l'annuaire est en anglais, une fiche notée en jeu est dans la
+-- langue du joueur. On les reconnaît au même métier et au même endroit (ou au même nom).
+local TWIN_DISTANCE = 0.02
+local function SameTrainer(known, entry)
+    if type(known) ~= "table" or known.kind ~= "trainer" then return false end
+    if known.professionID ~= nil and known.professionID ~= entry.professionID then return false end
+    if known.name == entry.name then return true end
+    return known.map == entry.map and type(known.x) == "number" and type(known.y) == "number"
+        and math.abs(known.x - entry.x) <= TWIN_DISTANCE and math.abs(known.y - entry.y) <= TWIN_DISTANCE
+end
+
+-- PNJ livrés avec l'add-on, puis ceux vus par le joueur (qui les remplacent).
+local function KnownNpcs()
+    local known = {}
+    for id, npc in pairs(ns.NPCs or {}) do known[id] = npc end
+    for id, npc in pairs(ns.db and ns.db.npcs or {}) do known[id] = npc end
+    return known
+end
+
+-- Fiche notée en jeu du maître de l'annuaire « entry », s'il a déjà été rencontré.
+local function KnownTwin(entry, known)
+    for _, npc in pairs(known) do
+        if SameTrainer(npc, entry) then return npc end
+    end
+    return nil
+end
+
+-- Tous les PNJ connus : ceux notés (livrés ou vus par le joueur), puis les maîtres de l'annuaire
+-- qui n'ont pas encore de fiche notée.
 local function AllNpcs()
-    local all = {}
-    for id, npc in pairs(ns.NPCs or {}) do all[id] = npc end
-    for id, npc in pairs(ns.db and ns.db.npcs or {}) do all[id] = npc end
+    local all = KnownNpcs()
+    local known = {}
+    for id, npc in pairs(all) do known[id] = npc end
+    for id, npc in pairs(Directory()) do
+        if not KnownTwin(npc, known) then all[id] = npc end
+    end
     return all
 end
 
@@ -162,6 +210,10 @@ local TRAINER_WEIGHT = 1000
 local function Serves(npc, prof, reagents)
     if npc.kind == "trainer" then
         local teaches = (npc.professionID ~= nil and npc.professionID == prof.id) or npc.profession == prof.name
+        -- Maître de l'annuaire : seulement s'il enseigne le rang actuel ou le suivant.
+        if teaches and npc.directory then
+            teaches = npc.unlocks[prof.max] or npc.unlocks[(prof.max or 0) + 75] or false
+        end
         return teaches and TRAINER_WEIGHT or 0
     end
     local matches = 0
@@ -223,6 +275,38 @@ function ns.NpcsToShow(prof)
         end
     end
     return shown
+end
+
+-- Maître de l'annuaire qui enseigne le rang de maximum « nextMax », accessible au joueur : celui de
+-- la zone du joueur (le plus proche) d'abord, puis ceux de sa faction (les villes de sa faction)
+-- avant les lieux neutres, puis par zone et par nom. S'il a déjà été rencontré, on renvoie sa fiche
+-- notée en jeu (nom dans la langue du joueur, position exacte).
+function ns.RankTrainer(skillLine, nextMax)
+    local here, hereX, hereY = PlayerPosition()
+    local playerFaction = Call(UnitFactionGroup, "player")
+    local zones = {}
+    local function Zone(map)
+        zones[map] = zones[map] or ns.NpcZoneName(map)
+        return zones[map]
+    end
+    local best, bestKey
+    for _, npc in pairs(Directory()) do
+        if npc.professionID == skillLine and npc.unlocks[nextMax] and SameFaction(npc.faction, playerFaction) then
+            local sameMap = here ~= nil and npc.map == here
+            local distance = sameMap and ((npc.x - hereX) ^ 2 + (npc.y - hereY) ^ 2) or math.huge
+            local ownFaction = playerFaction ~= nil and npc.faction == playerFaction
+            local key = { sameMap and 0 or 1, distance, ownFaction and 0 or 1, Zone(npc.map), npc.name }
+            local better = not bestKey
+            for i = 1, #key do
+                if better or key[i] ~= bestKey[i] then
+                    better = better or key[i] < bestKey[i]
+                    break
+                end
+            end
+            if better then best, bestKey = npc, key end
+        end
+    end
+    return best and (KnownTwin(best, KnownNpcs()) or best)
 end
 
 -- Pose le repère du jeu sur ce PNJ, avec la flèche qui guide jusqu'à lui.

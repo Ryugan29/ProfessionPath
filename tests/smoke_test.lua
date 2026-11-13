@@ -136,6 +136,9 @@ C_Map = {
 UiMapPoint = { CreateFromCoordinates = function(map, x, y) return { uiMapID = map, x = x, y = y } end }
 C_SuperTrack = { SetSuperTrackedUserWaypoint = function(on) pinned.tracked = on end }
 function GetRealmName() return "Royaume" end
+-- Niveau du personnage : change selon le scenario.
+local playerLevel = 30
+function UnitLevel(unit) return unit == "player" and playerLevel or nil end
 function GetBuildInfo() return "1.60.1", "70862", "", 16001 end
 C_AddOns = { GetAddOnMetadata = function(addon, field)
     if addon == "ProfessionPath" and field == "Version" then return "9.9.9-test" end
@@ -388,7 +391,7 @@ scenario("tous les textes utilises par la fenetre existent", function()
         "TITLE", "DONE", "RESET", "TARGET", "NEXT_HEADER", "STEPS_HEADER", "MATERIALS_HEADER", "NO_PROFESSION",
         "FAV_ADD", "FAV_REMOVE", "FAV_TIP", "FAV_WIDGET", "FAV_NONE_IN_BAGS", "OWNED_BANK", "DEBUG_FAVORITES",
         "HERO_MATERIALS", "PER_CRAFT", "STEP_MATERIALS",
-        "TAB_LEVEL", "TAB_UNREAD", "MINIMAP_TIP_CLICK", "MINIMAP_TIP_DRAG", "MINIMAP_TIP_HIDE", "MINIMAP_HIDDEN", "MINIMAP_SHOWN", "NPC_HEADER", "NPC_TRAINER", "NPC_VENDOR", "NPC_MAP_BUTTON", "NPC_MAP_TIP", "NPC_PIN_DONE", "NPC_PIN_FAILED", "NPC_NONE", "VISIT_PIN", "DEBUG_NPCS", "SHARE_TITLE", "SHARE_HELP", "SHARE_STATS", "SHARE_EMPTY", "SHARE_CLOSE", "DIAG_TITLE", "DIAG_HELP", "DIAG_STATS", "WARN_TRAINER_SHIPPED", "RESIZE_TITLE", "RESIZE_TIP", "LAYOUT_COLUMN", "LAYOUT_WIDE", "LAYOUT_TIP", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
+        "TAB_LEVEL", "TAB_UNREAD", "RANK_TITLE", "RANK_JOURNEYMAN", "RANK_EXPERT", "RANK_ARTISAN", "RANK_TRAINER", "RANK_BOOK", "RANK_LEVEL", "MINIMAP_TIP_CLICK", "MINIMAP_TIP_DRAG", "MINIMAP_TIP_HIDE", "MINIMAP_HIDDEN", "MINIMAP_SHOWN", "NPC_HEADER", "NPC_TRAINER", "NPC_VENDOR", "NPC_MAP_BUTTON", "NPC_MAP_TIP", "NPC_PIN_DONE", "NPC_PIN_FAILED", "NPC_NONE", "VISIT_PIN", "DEBUG_NPCS", "SHARE_TITLE", "SHARE_HELP", "SHARE_STATS", "SHARE_EMPTY", "SHARE_CLOSE", "DIAG_TITLE", "DIAG_HELP", "DIAG_STATS", "WARN_TRAINER_SHIPPED", "RESIZE_TITLE", "RESIZE_TIP", "LAYOUT_COLUMN", "LAYOUT_WIDE", "LAYOUT_TIP", "VENDOR_READ", "DEBUG_VENDOR", "COST_TOTAL", "COST_PARTIAL", "COST_TIP", "PREPARE_HEADER", "PREPARE_LINE", "PREPARE_LINE_CRAFTS", "PREPARE_TIP", "PREPARE_MADE_WITH", "PREPARE_YIELD", "WARN_TRAINER_TITLE", "WARN_TRAINER_BODY" }) do
         assert(type(ns.L[key]) == "string", "texte manquant : " .. key)
     end
 end)
@@ -737,25 +740,34 @@ scenario("PNJ du metier : maitre et marchand notes, liste triee, repere sur la c
     OpenWindow()
     ns.RefreshUI()
     Advance(1)
+    -- Les maitres de l'annuaire en ville passent devant le maitre lointain : on teste le bouton
+    -- du premier maitre affiche.
     local mapButton
     for _, frame in ipairs(allFrames) do
-        if frame.npcPin and IsVisible(frame) and frame.npc and frame.npc.name == "Maitre Lointain" then mapButton = frame end
+        if not mapButton and frame.npcPin and IsVisible(frame) and frame.npc and frame.npc.kind == "trainer" then mapButton = frame end
     end
-    assert(mapButton, "bouton « Carte » absent pour le maitre lointain")
+    assert(mapButton, "bouton « Carte » absent pour les maitres")
+    local target = mapButton.npc
     printed = {}
     mapButton.scripts.OnClick(mapButton)
-    assert(pinned.point and pinned.point.uiMapID == 1455 and pinned.point.x == 0.1, "repere mal pose")
+    assert(pinned.point and pinned.point.uiMapID == target.map and pinned.point.x == target.x, "repere mal pose")
     assert(pinned.tracked == true, "le repere doit etre suivi (fleche a l'ecran)")
     assert(#printed == 1, "la pose du repere doit etre annoncee")
     HoverAll()
 
-    -- Rien de connu pour un metier : la section le dit au lieu de rester vide.
+    -- Aucun PNJ note en jeu : la section propose quand meme les maitres de l'annuaire.
     local saved = ns.db.npcs
     ns.db.npcs = {}
-    assert(#ns.NpcsFor(ns.SelectedProfession()) == 0, "aucun PNJ attendu")
+    local fromDirectory = ns.NpcsFor(ns.SelectedProfession())
+    ns.db.npcs = saved
+    assert(#fromDirectory > 0, "les maitres de l'annuaire doivent etre proposes")
+    for _, entry in ipairs(fromDirectory) do
+        assert(entry.npc.directory or ns.NPCs[entry.id], "seuls l'annuaire et les PNJ livres sont attendus : " .. entry.npc.name)
+    end
+    -- Metier sans aucun PNJ connu (ni note, ni dans l'annuaire) : la section le dit au lieu de rester vide.
+    assert(#ns.NpcsFor({ id = 999999, name = "Inconnu", max = 75, recipes = {} }) == 0, "aucun PNJ attendu")
     ns.RefreshUI()
     Advance(1)
-    ns.db.npcs = saved
     npcTarget.name, npcTarget.guid = "Maitre Test", "Creature-0-1-2-3-3355-0000AAAA"
 
     -- Dans un batiment qui a sa propre petite carte, le PNJ est note sur la carte de la ville.
@@ -1241,6 +1253,99 @@ scenario("objets : un nom qui arrive tard s'affiche, quel que soit le signal du 
     assert(refreshes == 1, "le second signal du meme objet ne redessine pas encore")
     assert(ns.ItemName(520) == "Objet 520", "le nom arrive doit s'afficher")
     ns.RefreshUI = realRefresh
+end)
+
+scenario("rang suivant : dit quand apprendre Compagnon, Expert ou Artisan", function()
+    local function Next(id, name, skill, max, level)
+        playerLevel = level or 30
+        local title, body, npc = ns.NextRankText({ id = id, name = name, skill = skill, max = max })
+        playerLevel = 30
+        return title, body, npc
+    end
+    -- Trop tot (Forge 40 / 75 : Compagnon demande 50) ou rien au-dessus de 300 : pas de bandeau.
+    assert(Next(164, "Forge", 40, 75) == nil, "pas de bandeau avant le niveau de metier requis")
+    assert(Next(164, "Forge", 300, 300) == nil, "pas de rang au-dessus d'Artisan")
+    -- Rang deja appris (maximum deja a 150) : pas de bandeau pour Compagnon.
+    assert(Next(164, "Forge", 60, 150) == nil, "Compagnon deja appris")
+    -- Forge 60 / 75 au niveau 12 : Compagnon chez le maitre, sans condition de niveau manquante.
+    local title, body = Next(164, "Forge", 60, 75, 12)
+    assert(title == ns.L.RANK_TITLE:format(ns.L.RANK_JOURNEYMAN), "titre Compagnon attendu : " .. tostring(title))
+    assert(body:find("75", 1, true) and body:find("Forge", 1, true), "texte du maitre attendu : " .. tostring(body))
+    assert(not body:find(ns.L.RANK_LEVEL:format(10, 12), 1, true), "niveau deja suffisant : rien a dire")
+    -- Au niveau 8 : il faut aussi le niveau 10 (confirme pour les metiers de fabrication).
+    title, body = Next(164, "Forge", 60, 75, 8)
+    assert(body:find(ns.L.RANK_LEVEL:format(10, 8), 1, true), "niveau 10 requis attendu : " .. body)
+    -- Forge 130 / 150 au niveau 18 : Expert, niveau 20 requis.
+    title, body = Next(164, "Forge", 130, 150, 18)
+    assert(title == ns.L.RANK_TITLE:format(ns.L.RANK_EXPERT), "titre Expert attendu")
+    assert(body:find(ns.L.RANK_LEVEL:format(20, 18), 1, true), "niveau 20 requis attendu : " .. body)
+    -- Forge 210 / 225 : Artisan.
+    title = Next(164, "Forge", 210, 225, 40)
+    assert(title == ns.L.RANK_TITLE:format(ns.L.RANK_ARTISAN), "titre Artisan attendu")
+    -- Cuisine 130 / 150 : Expert s'apprend avec un livre, pas chez le maitre.
+    title, body = Next(185, "Cuisine", 130, 150, 5)
+    assert(body:find(ns.L.RANK_BOOK:format(ns.L.RANK_EXPERT, 150), 1, true), "livre attendu pour la Cuisine experte : " .. tostring(body))
+    -- Peche 130 / 150 au niveau 15 : livre, et niveau 20 requis.
+    title, body = Next(356, "Peche", 130, 150, 15)
+    assert(body:find(ns.L.RANK_BOOK:format(ns.L.RANK_EXPERT, 150), 1, true)
+        and body:find(ns.L.RANK_LEVEL:format(20, 15), 1, true),
+        "livre et niveau 20 attendus pour la Peche experte : " .. tostring(body))
+
+    -- L'annuaire des maitres : le bandeau nomme le maitre Expert de la faction du joueur (Alliance).
+    local npc
+    title, body, npc = Next(164, "Forge", 130, 150, 25)
+    assert(npc and npc.unlocks[225], "un maitre qui enseigne Expert est attendu")
+    assert(npc.faction == "Alliance", "un maitre de la faction du joueur passe avant un lieu neutre : " .. npc.name)
+    assert(body:find(npc.name, 1, true), "le bandeau doit nommer le maitre : " .. body)
+    -- Le meme maitre deja rencontre en jeu sous son nom francais (meme endroit, meme metier) :
+    -- c'est lui qui est nomme, et l'annuaire ne le montre pas une seconde fois.
+    ns.db.npcs["trainer:7777"] = { kind = "trainer", name = "Maitre en francais", map = npc.map,
+        x = npc.x + 0.005, y = npc.y - 0.005, faction = "Alliance", professionID = 164, profession = "Forge" }
+    title, body, npc = Next(164, "Forge", 130, 150, 25)
+    assert(npc.name == "Maitre en francais", "le maitre vu en jeu doit remplacer celui de l'annuaire : " .. npc.name)
+    for _, entry in ipairs(ns.NpcsFor({ id = 164, name = "Forge", max = 150, recipes = {} })) do
+        assert(not (entry.npc.directory and entry.npc.map == npc.map and math.abs(entry.npc.x - npc.x) < 0.02
+            and math.abs(entry.npc.y - npc.y) < 0.02), "maitre en double : " .. entry.npc.name)
+    end
+    ns.db.npcs["trainer:7777"] = nil
+    -- Minage 60 / 75 au niveau 5 : le site ne confirme pas de niveau de personnage, on n'en invente pas.
+    title, body = Next(186, "Minage", 60, 75, 5)
+    assert(title and not body:find(ns.L.RANK_LEVEL:format(10, 5), 1, true), "pas de niveau invente pour le Minage")
+
+    -- Dans la fenetre : le bandeau apparait, puis disparait quand le rang est appris.
+    OpenWindow()
+    local prof = ns.SelectedProfession()
+    local savedSkill, savedMax = prof.skill, prof.max
+    prof.skill, prof.max = 130, 150
+    ns.RefreshUI()
+    Advance(1)
+    local banner
+    for _, frame in ipairs(allFrames) do
+        if frame.rankBanner then banner = frame end
+    end
+    assert(banner and IsVisible(banner), "bandeau du rang suivant absent")
+    assert(banner.title:GetText() == ns.L.RANK_TITLE:format(ns.L.RANK_EXPERT), "titre du bandeau faux")
+    -- Le bouton « Carte » du bandeau pose la fleche sur le maitre nomme.
+    assert(banner.pin and IsVisible(banner.pin), "bouton Carte du bandeau absent")
+    pinned.point = nil
+    banner.pin.scripts.OnClick(banner.pin)
+    assert(pinned.point and pinned.point.uiMapID == banner.npc.map, "la fleche doit aller sur le maitre du bandeau")
+    -- La section des PNJ propose aussi les maitres de l'annuaire, de la bonne faction.
+    local directory = 0
+    for _, entry in ipairs(ns.NpcsFor(prof)) do
+        if entry.npc.directory then
+            directory = directory + 1
+            assert(entry.npc.faction ~= "Horde", "maitre de l'autre faction propose : " .. entry.npc.name)
+            assert(entry.npc.unlocks[150] or entry.npc.unlocks[225], "maitre sans rapport avec le rang : " .. entry.npc.name)
+        end
+    end
+    assert(directory > 0, "aucun maitre de l'annuaire propose")
+    prof.max = 225
+    ns.RefreshUI()
+    Advance(1)
+    assert(not IsVisible(banner), "le bandeau doit disparaitre une fois le rang appris")
+    prof.skill, prof.max = savedSkill, savedMax
+    ns.RefreshUI()
 end)
 
 scenario("commandes du chat", function()
